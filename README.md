@@ -7,6 +7,12 @@ dynamic changes in the flutter/react-native application. Since, developing this 
 because of new tools, prompts and resources required to train LLM, and no one yet has provided
 to give a server like this till now. 
 
+**Users or uses are out of scope**: The users who wants to build some
+new features for the application that has never implemented 
+before by anyone would resist using the app because it is very likey that
+the LLM might have the knowledge to do the same. So, our project doesn't 
+kill creativity, it only enhances it.
+
 __Target User:__ This product will be used by the client looking fpr
 an AI agent to develop the basic functionality of the application, 
 like rendering a screen correctly, adding and changing the RestAPI calls,
