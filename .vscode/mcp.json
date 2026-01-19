@@ -1,0 +1,22 @@
+/*
+Note: This is claude configuration file for MCP servers. Directly add this in the
+claude configuration file. Go to Claude Desktop > Settings > Developer > Edit Config 
+or run uv run mcp install sample_mcp_server in the terminal to automatically add this file.
+*/
+
+// {
+//   "mcpServers": {
+//     "Sample": {
+//       "command": "/Users/kushaldevgun/miniconda3/envs/agents/bin/uv",
+//       "args": [
+//         "run",
+//         "--frozen",
+//         "--with",
+//         "mcp[cli]",
+//         "mcp",
+//         "run",
+//         "/Users/kushaldevgun/Documents/Mobile-Appliacation-Agent/sample_mcp_server.py"
+//       ]
+//     }
+//   }
+// }
