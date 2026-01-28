@@ -20,3 +20,23 @@ or run uv run mcp install sample_mcp_server in the terminal to automatically add
 //     }
 //   }
 // }
+
+// {
+//   "mcpServers": {
+//     "HRAssistantServer": {
+//       "command": "/Users/kushaldevgun/miniconda3/envs/agents/bin/python",
+//       "args": [
+//         "run",
+//         "--frozen",
+//         "--with",
+//         "mcp[cli]",
+//         "mcp",
+//         "run",
+//         "/Users/kushaldevgun/Documents/Mobile-Appliacation-Agent/mcpServer.py"
+//       ]
+//     }
+//   }
+// "env": {
+//         "PATH": "/Users/kushaldevgun/miniconda3/envs/agents/bin"
+//       }
+// }
