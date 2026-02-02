@@ -9,7 +9,7 @@ def register_tools(mcp: FastMCP):
     # Note: Tool name should not start with underscore(_) to be registered
     available_tools = [name for name, func in inspect.getmembers(CheckingToolsLLMAsRouter, predicate=inspect.isfunction) if not name.startswith('_')]
     for tool_name in available_tools:
-        logging.info(f"Registering tool: {tool_name}")
+        logging.info(f"Registering LLM Router tool: {tool_name}")
         mcp.add_tool(
             getattr(router_tools, tool_name),
             name=tool_name,
