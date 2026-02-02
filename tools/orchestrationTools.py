@@ -19,8 +19,16 @@ class SessionStateForCreateTable:
     table_name: str = ''
     columns: List[Dict[str, str]] = None  # List of dicts with column name and type
 
+@dataclass
+class SessionStateForDeleteTable:
+    session_id: str
+    step: str = 'None'
+    table_name: str = ''
+    confirmation: str = ''
+
 TABLECHECKSESSIONS: Dict[str, SessionStateForTableCheck] = {}
 CREATETABLESESSIONS: Dict[str, SessionStateForCreateTable] = {}
+DELETETABLESESSIONS: Dict[str, SessionStateForDeleteTable] = {}
 
 def register_orchestration_tools(mcp: FastMCP):
     orchestration_tools = OrchestrationTools()
@@ -34,6 +42,10 @@ def register_orchestration_tools(mcp: FastMCP):
         )
 
 class OrchestrationTools:
+
+    def __init__(self):
+        # Initializing the adapter so the tools can talk to Postgres
+        self.adapter = PostgresAdapter(config=Configuration.DB_CONFIG)
 
     def check_table_types(self, session_state: SessionStateForTableCheck) -> Dict[str, Any]:
 
@@ -151,3 +163,51 @@ class OrchestrationTools:
                 "status": "completed",
                 "message": "Table creation process completed."
             }
+    
+    def delete_table(self, session_state: SessionStateForDeleteTable) -> Dict[str, Any]:
+
+        session = DELETETABLESESSIONS.setdefault(session_state.session_id, session_state)
+
+        # Asking table name
+        if session.step == 'None':
+            session.step = 'ASK_Table_Name'
+            return {
+                "status": "ask_table_name",
+                "message": "Which table would you like to delete? Please provide the exact name."
+            }
+
+        # Asking for confirmation
+        elif session.step == 'ASK_Table_Name':
+            session.table_name = session_state.table_name
+            session.step = 'ASK_Confirmation'
+            return {
+                "status": "ask_confirmation",
+                "message": f"Are you absolutely sure you want to delete the table '{session.table_name}'? This action cannot be undone. Please respond with 'YES' to proceed."
+            }
+
+        # Excecute the deletion of the table
+        elif session.step == 'ASK_Confirmation':
+            if session_state.confirmation.upper() == 'YES':
+                try:
+                    # Protection against deleting the main dataset
+                    if session.table_name.lower() == "hrdataset_clean":
+                        return {"status": "error", "message": "Deletion of the primary 'hrdataset_clean' table is prohibited."}
+                    
+                    query = f"DROP TABLE IF EXISTS {session.table_name};"
+                    self.adapter.execute_query(query)
+                    
+                    session.step = 'Completed'
+                    return {
+                        "status": "success",
+                        "message": f"Table '{session.table_name}' has been successfully deleted."
+                    }
+                except Exception as e:
+                    return {"status": "error", "message": f"Failed to delete table: {str(e)}"}
+            else:
+                session.step = 'None' # Reset session
+                return {
+                    "status": "cancelled",
+                    "message": "Deletion cancelled. The table was not removed."
+                }
+        
+        return {"status": "completed", "message": "Process finished."}

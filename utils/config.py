@@ -29,3 +29,4 @@ class ToolPrompts:
     # Tool descriptions for Orchestration Tools (Human-in-the-loop)
     check_table_types = "Orchestrate the process of checking table types in the database based on user input."
     create_table = "Orchestrate the process of creating a new table in the database based on user input."
+    delete_table = "Orchestrate the process of deleting a table. This tool will ask for the table name and require a final confirmation before deletion."
