@@ -182,7 +182,7 @@ class OrchestrationTools:
             session.step = 'ASK_Confirmation'
             return {
                 "status": "ask_confirmation",
-                "message": f"Are you absolutely sure you want to delete the table '{session.table_name}'? This action cannot be undone. Please respond with 'YES' to proceed."
+                "message": f"Are you absolutely sure you want to delete the table '{session.table_name}'? This action cannot be undone."
             }
 
         # Excecute the deletion of the table
@@ -194,7 +194,7 @@ class OrchestrationTools:
                         return {"status": "error", "message": "Deletion of the primary 'hrdataset_clean' table is prohibited."}
                     
                     query = f"DROP TABLE IF EXISTS {session.table_name};"
-                    self.adapter.execute_query(query)
+                    PostgresAdapter(config=Configuration.DB_CONFIG).execute_query(query)
                     
                     session.step = 'Completed'
                     return {
