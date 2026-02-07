@@ -1,4 +1,4 @@
-# PostgeSQL-Agent
+# PostgreSQL-Agent
 
 A repository for building Agent that can build an handle PostgreSQL queries dynamically.
 This will not include the usuage of already exists MCP server which could be 
