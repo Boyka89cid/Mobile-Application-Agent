@@ -1,9 +1,9 @@
-# Mobile-Application-Agent
+# PostgesSQL-Agent
 
-A repository for building Agent that can build an application dynamically.
-This will include the usuage of already exists MCP server which could be 
-taken from GitHub site, [MCP servers](https://github.com) or building and maintaining a new MCP servers so to allow
-dynamic changes in the flutter/react-native application. Since, developing this kind of server will be new 
+A repository for building Agent that can build an handle PostgreSQL queries dynamically.
+This will not include the usuage of already exists MCP server which could be 
+taken from GitHub site, [MCP servers](https://github.com) and we are building and maintaining a new MCP servers so to allow
+orchestration to be possible. Since, developing this kind of server will be new 
 because of new tools, prompts and resources required to train LLM, and no one yet has provided
 to give a server like this till now. 
 
@@ -14,10 +14,7 @@ the LLM might have the knowledge to do the same. So, our project doesn't
 kill creativity, it only enhances it.
 
 __Target User:__ This product will be used by the client looking fpr
-an AI agent to develop the basic functionality of the application, 
-like rendering a screen correctly, adding and changing the RestAPI calls,
-adjusting the requirements according to the user requirement and many
-more tools can be added.
+an AI agent to develop the basic functionality of the Postgresql
 
 __Risk__: One risk we agree cannot ignore is AI/LLM agent capable
 of devlering all the different functionalites. To resolve this problem
