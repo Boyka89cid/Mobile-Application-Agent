@@ -1,0 +1,56 @@
+from dataclasses import dataclass, field
+from typing import Optional, List, Dict, Any
+from tools.ochestrator.sessionSteps import (
+    CheckTableSteps,
+    CountTableSteps,
+    CreateTableSteps,
+    DeleteTableSteps,
+    AddRecordSteps,
+    DeleteRecordSteps
+)
+
+@dataclass
+class SessionStateForTableCheck:
+    session_id: str
+    step: str = CheckTableSteps.ASK_TYPE.value
+    table_type: str = ''
+
+@dataclass
+class SessionStateForTableCount:
+    session_id: str
+    step: str = CountTableSteps.ASK_TYPE.value
+    table_type: str = ''
+
+@dataclass
+class SessionStateForCreateTable:
+    session_id: str
+    step: str = CreateTableSteps.ASK_TYPE.value
+    table_type: str = ''
+    table_name: str = ''
+    user_confirmation: bool | None = None  # User confirmation input
+    columns: List[Dict[str, str]] = None  # List of dicts with column name and type
+
+@dataclass
+class SessionStateForDeleteTable:
+    session_id: str
+    step: str = DeleteTableSteps.ASK_TABLE_NAME.value
+    table_name: str = ''
+    user_confirmation: bool | None = None  # User confirmation input
+
+@dataclass
+class SessionStateForAddRecord:
+    session_id: str
+    step: str = AddRecordSteps.ASK_TABLE_NAME.value
+    table_name: str = ''
+    validated: bool | None = None
+    record: Dict[str, Any] = field(default_factory=dict)  # Record to be added
+
+@dataclass
+class SessionStateForDeleteRecord:
+    session_id: str
+    step: str = DeleteRecordSteps.ASK_TABLE_NAME.value
+    table_name: str = ''
+    columns : List[str] = field(default_factory=list)  # List of column names in the table
+    column_name: str | None = None  # Column name to identify the record
+    column_value: Any  | None = None  # Value of the column to identify the record
+    record_id: Any | None = None  # ID of the record to be deleted

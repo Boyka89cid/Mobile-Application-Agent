@@ -1,12 +1,12 @@
 import json
-import logging
 from adapters.postgresAdapter import PostgresAdapter
 from utils.config import Configuration
+from mcp.server.fastmcp import FastMCP
 
-logger = logging.getLogger(__name__)
 
 class TablesResources:
-    def __init__(self):
+    def __init__(self, mcp: FastMCP):
+        self.mcp = mcp
         self.adapter = PostgresAdapter(config=Configuration.DB_CONFIG)
 
     def get_hrdataset_clean_records(self, limit: int = 5):
@@ -14,8 +14,8 @@ class TablesResources:
         return self.adapter.execute_query(query, (limit,))
 
 
-def resources(mcp):
-    res = TablesResources()
+def resources(mcp: FastMCP):
+    res = TablesResources(mcp=mcp)
 
     # Use @mcp.resource(...) so FastMCP creates a Resource WITH a read() method internally.
     @mcp.resource("db://hrdataset_clean")
@@ -27,7 +27,8 @@ def resources(mcp):
             rows = res.get_hrdataset_clean_records(limit=5)
             return json.dumps(rows, default=str)
         except Exception as e:
-            logger.exception("Failed to read resource db://hrdataset_clean")
+            mcp.get_context().session.send_log_message("error", f"Failed to read resource db://hrdataset_clean: {e}")
+            #logger.exception("Failed to read resource db://hrdataset_clean")
             return json.dumps({"error": str(e)})
         return hrdataset_clean    
 

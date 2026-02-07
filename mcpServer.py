@@ -1,17 +1,7 @@
-import logging, sys
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    handlers=[logging.StreamHandler(sys.stderr)],
-    force=True,
-)
-
-logger = logging.getLogger("HRAssistantServer")
-logger.info("Server starting...")
-
 from mcp.server.fastmcp import FastMCP
-from tools import llmRouterTools, orchestrationTools
+from tools.ochestrator import orchestrationTools
 from resources import tablesResources
+from tools import llmRouterTools
 
 mcp = FastMCP(
     "HRAssistantServer",
