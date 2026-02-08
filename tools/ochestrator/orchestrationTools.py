@@ -1,7 +1,8 @@
 import inspect, logging
 from mcp.server.fastmcp import FastMCP
 from typing import List, Dict, Any, Optional
-from utils.config import ToolPrompts, Configuration
+from utils.config import Configuration
+from tools.ochestrator.toolDescriptions import ToolPrompts
 from adapters.postgresAdapter import PostgresAdapter
 from tools.ochestrator.postgresHelperFxns import PostgresHelperFxns
 from tools.llmRouterTools import CheckingToolsLLMAsRouter
