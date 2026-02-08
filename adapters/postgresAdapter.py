@@ -28,8 +28,7 @@ class PostgresAdapter:
                     return [dict(r) for r in rows]
         except Exception as e:
             conn.rollback()
-            error_msg = f"Error executing query: {e}"
-            log(error_msg)
             raise
+            #return f"Error while executing query: {e}"
         finally:
             conn.close()

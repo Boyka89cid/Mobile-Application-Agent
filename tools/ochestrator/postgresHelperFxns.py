@@ -60,10 +60,11 @@ class PostgresHelperFxns:
 
     def create_new_table(self, table_type, table_name, columns:list):
         try:
-            columns_def = ""
-            for col in columns:
-                for name, dtype in col.items():
-                    columns_def += f"{name} {dtype}, "
+        # Expect columns like: [{"name": "id", "type": "INTEGER"}, ...]
+            columns_def = ", ".join(
+                f"{col['name']} {col['type']}"
+                for col in columns
+            )
             columns_def = columns_def.rstrip(", ")
 
             if table_type.lower() == 'public':
@@ -191,15 +192,15 @@ class PostgresHelperFxns:
             logging.exception("Failed to find record")
             return None
 
-    def delete_record_by_id(self, table_name: str, record_id: Any) -> str:
+    def delete_record_by_column(self, table_name: str, column_name: str, value: Any) -> str:
         try:
-            query = f"DELETE FROM {table_name} WHERE id = %s;"
+            query = f"DELETE FROM {table_name} WHERE {column_name} = %s;"
             try:
-                self.adapter.execute_query(query, (record_id,))
+                self.adapter.execute_query(query, (value,))
             except Exception as e:
                 logging.exception("Failed to delete record")
                 return f"Error deleting record from table {table_name}: {e}", False
-            return f"Record with ID {record_id} deleted successfully from table {table_name}.", True
+            return f"Record with {column_name} {value} deleted successfully from table {table_name}.", True
         except Exception as e:
             logging.exception("Failed to delete record")
             return f"Error deleting record from table {table_name}: {e}", False

@@ -376,15 +376,15 @@ class OrchestrationTools:
             has_table = bool(s.table_name.strip())
             has_column_name = bool(s.column_name.strip())
             has_column_value = s.column_value is not None
-            has_record_id = s.record_id is not None
-
+            has_confirmation = s.user_confirmation
             if not has_table:
                 return DeleteRecordSteps.ASK_TABLE_NAME.value
             if has_table and not (has_column_name and has_column_value):
                 return DeleteRecordSteps.GET_COLUMN_NAMES.value
-            if has_table and has_column_name and has_column_value and not has_record_id:
+            if has_table and has_column_name and has_column_value and has_confirmation is None:
                 return DeleteRecordSteps.GET_RECORD.value
-            return DeleteRecordSteps.DELETE_RECORD.value if has_record_id else DeleteRecordSteps.GET_RECORD.value
+            if has_table and has_column_name and has_column_value and has_confirmation is not None:
+                return DeleteRecordSteps.DELETE_RECORD.value
         
 
         sessions = DELETERECORDSESSIONS.setdefault(session_state.session_id, session_state)
@@ -396,8 +396,8 @@ class OrchestrationTools:
             sessions.column_name = session_state.column_name
         if session_state.column_value is not None:
             sessions.column_value = session_state.column_value
-        if session_state.record_id is not None:
-            sessions.record_id = session_state.record_id
+        if session_state.user_confirmation is not None:
+            sessions.user_confirmation = session_state.user_confirmation
         
         sessions.step = decide_step(sessions)
         if sessions.step == DeleteRecordSteps.ASK_TABLE_NAME.value:
@@ -432,10 +432,10 @@ class OrchestrationTools:
                     "message": f"No record found in table {sessions.table_name} with column '{sessions.column_name}' having value '{sessions.column_value}'. Please try again."
                 }
             else:
-                sessions.record_id = record
+                #sessions.record_id = record
                 return {
                     "status": "record_summary",
-                    "message": f"Delete record with ID {sessions.record_id} from table {sessions.table_name}."
+                    "message": f"I found a record {record} from table {sessions.table_name}. Are you sure you want to delete this record?"
                 }
         elif sessions.step == DeleteRecordSteps.DELETE_RECORD.value:
             if sessions.user_confirmation is False:
@@ -445,9 +445,10 @@ class OrchestrationTools:
                     "message": "Record deletion cancelled by the user."
                 }
             else:
-                result, success = PostgresHelperFxns(self.adapter).delete_record_by_id(
+                result, success = PostgresHelperFxns(self.adapter).delete_record_by_column(
                     table_name=sessions.table_name,
-                    record_id=sessions.record_id
+                    column_name=sessions.column_name,
+                    value=sessions.column_value
                 )
                 if success:
                     DELETERECORDSESSIONS.pop(sessions.session_id, None)  # Clean up session

@@ -28,7 +28,7 @@ class SessionStateForCreateTable:
     table_type: str = ''
     table_name: str = ''
     user_confirmation: bool | None = None  # User confirmation input
-    columns: List[Dict[str, str]] = None  # List of dicts with column name and type
+    columns: List[Dict[str, str]] | None = None  # List of dicts with column name and type
 
 @dataclass
 class SessionStateForDeleteTable:
@@ -43,7 +43,7 @@ class SessionStateForAddRecord:
     step: str = AddRecordSteps.ASK_TABLE_NAME.value
     table_name: str = ''
     validated: bool | None = None
-    record: Dict[str, Any] = field(default_factory=dict)  # Record to be added
+    record: Dict[str, Any] | None = None  # Record to be added
 
 @dataclass
 class SessionStateForDeleteRecord:
@@ -51,6 +51,7 @@ class SessionStateForDeleteRecord:
     step: str = DeleteRecordSteps.ASK_TABLE_NAME.value
     table_name: str = ''
     columns : List[str] = field(default_factory=list)  # List of column names in the table
-    column_name: str | None = None  # Column name to identify the record
+    column_name: str = ''  # Column name to identify the record
     column_value: Any  | None = None  # Value of the column to identify the record
-    record_id: Any | None = None  # ID of the record to be deleted
+    user_confirmation: bool | None = None  # User confirmation input
+    #record_id: Any | None = None  # ID of the record to be deleted
