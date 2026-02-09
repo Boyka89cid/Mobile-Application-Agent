@@ -102,3 +102,20 @@ class ToolPrompts:
     If any required field is missing, move back to the appropriate ask_* step.
     '''
     delete_record_from_table = f"Orchestrate the process of deleting a record from a specified table in the database based on user input. \n {delete_record_from_table_workflow}"
+
+    retrieve_record_from_table_workflow = f'''
+    WORKFLOW: retrieve_record_from_table (state machine)
+    State fields:
+    - session_id: string (required)
+    - step: enum[ ask_table_name, get_column_names, get_record]
+    - table_name: string
+    - columns: list[string] | null
+    - column_name: string | null
+    - column_value: string | null
+    {RULES}
+    1) ask user for table_name if not provided (column names for the given table_name will be fetched and store it in columns).
+    2) ask user to select the column name and provide its corresponding value to identify the record(s) to be retrieved. Store the selected column name and value in column_name and column_value respectively.
+    3) fetch the record(s) based on the provided column_name and column_value and return the record(s). If no record is found, go back to step 2. If multiple records are found, return all the records matching the column_name and column_value.
+    If any required field is missing, move back to the appropriate ask_* step.
+    '''
+    retrieve_record_from_table = f"Orchestrate the process of retrieving a record from a specified table in the database based on user input. \n {retrieve_record_from_table_workflow}"

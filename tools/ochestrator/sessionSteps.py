@@ -32,3 +32,8 @@ class DeleteRecordSteps(Enum):
     GET_RECORD = "get_record"
     USER_CONFIRMATION = "user_confirmation"
     DELETE_RECORD = "delete_record"
+
+class RetrieveRecordSteps(Enum):
+    ASK_TABLE_NAME = "ask_table_name"
+    GET_COLUMN_NAMES = "get_column_names"
+    GET_RECORD = "get_record"

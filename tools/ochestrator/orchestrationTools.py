@@ -12,7 +12,8 @@ from tools.ochestrator.sessionDataClasses import (
     SessionStateForCreateTable,
     SessionStateForDeleteTable,
     SessionStateForAddRecord,
-    SessionStateForDeleteRecord
+    SessionStateForDeleteRecord,
+    SessionStateForRetrieveRecord
 )
 from tools.ochestrator.sessionSteps import (
     CheckTableSteps,
@@ -20,7 +21,8 @@ from tools.ochestrator.sessionSteps import (
     CreateTableSteps,
     DeleteTableSteps,
     AddRecordSteps,
-    DeleteRecordSteps
+    DeleteRecordSteps,
+    RetrieveRecordSteps
 )
 
 TABLECHECKSESSIONS: Dict[str, SessionStateForTableCheck] = {}
@@ -29,6 +31,7 @@ CREATETABLESESSIONS: Dict[str, SessionStateForCreateTable] = {}
 DELETETABLESESSIONS: Dict[str, SessionStateForDeleteTable] = {}
 ADDRECORDSESSIONS: Dict[str, SessionStateForAddRecord] = {}
 DELETERECORDSESSIONS: Dict[str, SessionStateForDeleteRecord] = {}
+RETRIEVERECORDSESSIONS: Dict[str, SessionStateForRetrieveRecord] = {}
 
 def register_orchestration_tools(mcp: FastMCP):
     orchestration_tools = OrchestrationTools(mcp=mcp)
@@ -215,6 +218,70 @@ class OrchestrationTools:
     
        # Finite State Machine for Add Record Orchestration
     
+    # Finite State Machine for Retrieve Record Orchestration
+    def retrieve_record_from_table(self, session_state: SessionStateForRetrieveRecord) -> Dict[str, Any]:
+        def decide_step(s: SessionStateForRetrieveRecord) -> str:
+            has_table = bool(s.table_name.strip()) 
+            has_columns = bool(s.columns)  # True if list is non-empty; False for None or []
+
+            if not has_table:
+                return RetrieveRecordSteps.ASK_TABLE_NAME.value
+            if has_table and not has_columns:
+                return RetrieveRecordSteps.GET_COLUMN_NAMES.value
+            if has_table and has_columns:
+                return RetrieveRecordSteps.GET_RECORD.value
+
+        sessions = RETRIEVERECORDSESSIONS.setdefault(session_state.session_id, session_state)
+        if session_state.table_name is not None:
+            sessions.table_name = session_state.table_name
+        if session_state.columns is not None:
+            sessions.columns = session_state.columns
+        if session_state.column_name is not None:
+            sessions.column_name = session_state.column_name
+        if session_state.column_value is not None:
+            sessions.column_value = session_state.column_value
+        
+        sessions.step = decide_step(sessions)
+        if sessions.step == RetrieveRecordSteps.ASK_TABLE_NAME.value:
+            return {
+                "status": "ask_table_name",
+                "message": "Please provide the name of the table you want to retrieve a record from."
+            }
+        elif sessions.step == RetrieveRecordSteps.GET_COLUMN_NAMES.value:
+            if not PostgresHelperFxns(self.adapter).check_table_exists(sessions.table_name):
+                sessions.step = RetrieveRecordSteps.ASK_TABLE_NAME.value
+                return {
+                    "status": "table_error",
+                    "message": f"Table {sessions.table_name} does not exist. Please provide a valid table name."
+                }
+            else:
+                columns_names = PostgresHelperFxns(self.adapter).get_column_names(sessions.table_name)
+            columns_names_str = ', '.join(columns_names)
+            sessions.columns = columns_names
+            example_values = PostgresHelperFxns(self.adapter).check_table_example(sessions.table_name)
+            message = f"The table {sessions.table_name} has the following columns: {columns_names_str} with example values as {example_values}. Please select the column and the record to be retrieved."
+            return {
+                "status": "get_record",
+                "message": message
+            }
+        elif sessions.step == RetrieveRecordSteps.GET_RECORD.value:
+            tbl, col, val = sessions.table_name, sessions.column_name, sessions.column_value
+            record = PostgresHelperFxns(self.adapter).find_record_by_column(tbl, col, val)
+            if not record:
+                sessions.column_name = ''  # Reset column name to ask again
+                sessions.column_value = None  # Reset column value to ask again
+                sessions.columns = None  # Reset columns
+                return {
+                    "status": "record_not_found",
+                    "message": f"No record found in table {tbl} with column '{col}' having value '{val}'. Please try again."
+                }
+            else:
+                RETRIEVERECORDSESSIONS.pop(sessions.session_id, None)  # Clean up session
+                return {
+                    "status": "record_retrieved",
+                    "message": f"I found a record {record} from table {tbl}."
+                }
+
     # Finite State Machine for Delete Table Orchestration
     def delete_table(self, session_state: SessionStateForDeleteTable) -> Dict[str, Any]:
 

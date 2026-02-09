@@ -50,8 +50,17 @@ class SessionStateForDeleteRecord:
     session_id: str
     step: str = DeleteRecordSteps.ASK_TABLE_NAME.value
     table_name: str = ''
-    columns : List[str] = field(default_factory=list)  # List of column names in the table
+    columns : List[str] | None = None  # List of column names in the table
     column_name: str = ''  # Column name to identify the record
     column_value: Any  | None = None  # Value of the column to identify the record
     user_confirmation: bool | None = None  # User confirmation input
     #record_id: Any | None = None  # ID of the record to be deleted
+
+@dataclass
+class SessionStateForRetrieveRecord:
+    session_id: str
+    step: str = 'ask_table_name'
+    table_name: str = ''
+    columns : List[str] | None = None  # List of column names in the table
+    column_name: str = ''  # Column name to identify the record
+    column_value: Any  | None = None  # Value of the column to identify the record

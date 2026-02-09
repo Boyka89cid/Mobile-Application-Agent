@@ -180,9 +180,18 @@ class PostgresHelperFxns:
             logging.exception("Failed to check table existence")
             return False
 
+    def check_table_example(self, table_name: str) -> List[Dict[str, Any]]:
+        try:
+            query = f'SELECT * FROM "{table_name}" LIMIT 1;'
+            results = self.adapter.execute_query(query)
+            return results
+        except Exception as e:
+            logging.exception("Failed to fetch table examples")
+            return []
+        
     def find_record_by_column(self, table_name: str, column_name: str, value: Any) -> Optional[Dict[str, Any]]:
         try:
-            query = f"SELECT * FROM {table_name} WHERE {column_name} = %s;"
+            query = f'SELECT * FROM {table_name} WHERE "{column_name}" = %s;'
             results = self.adapter.execute_query(query, (value,))
             if results:
                 return results[0]
@@ -194,7 +203,7 @@ class PostgresHelperFxns:
 
     def delete_record_by_column(self, table_name: str, column_name: str, value: Any) -> str:
         try:
-            query = f"DELETE FROM {table_name} WHERE {column_name} = %s;"
+            query = f'DELETE FROM {table_name} WHERE "{column_name}" = %s;'
             try:
                 self.adapter.execute_query(query, (value,))
             except Exception as e:
