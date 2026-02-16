@@ -1,7 +1,7 @@
 import logging, inspect
 from adapters.postgresAdapter import PostgresAdapter
 from utils.config import Configuration
-from tools.ochestrator.toolDescriptions import ToolPrompts
+from tools.queryOrchestrator.toolDescriptions import ToolPrompts
 from mcp.server.fastmcp import FastMCP
 
 def register_tools(mcp: FastMCP): 
