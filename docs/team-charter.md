@@ -1,9 +1,9 @@
 ## Team Process & Collaboration
 
 ### Weekly Team Meeting
-- **Day**: TBD (weekly)
-- **Time**: TBD (based on team availability)
-- **Location**: TBD (Zoom / Google Meet/ In-person if required)
+- **Day**: Monday (weekly)
+- **Time**: 10🕥 (based on team availability)
+- **Location**: (https://uoregon.zoom.us/j/92166433754?pwd=laGrodrezGp1hFgYovnpap6lGIQ6qN.1) (Zoom / Google Meet/ In-person if required)
 - **Purpose**:  
   - Sync on progress and blockers  
   - Discuss architecture and design decisions  
