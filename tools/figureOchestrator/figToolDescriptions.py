@@ -19,3 +19,31 @@ class FigToolPrompts:
     If any required field is missing, move back to the appropriate ask_* step.
     '''
     plot_bar_chart = f"Orchestrate the process of generating a bar chart based on user input.\n {plot_bar_chart_workflow}"
+
+    plot_pie_chart_workflow = f'''
+    WORKFLOW: plot_pie_chart (state machine)
+    State fields:
+    - session_id: string (required)
+    - table_name: string
+    - category_column: string
+    {RULES}
+    1) Ask for table_name if not provided.
+    2) Ask for category_column if not provided.
+    3) Generate and return a pie chart showing the percentage distribution.
+    '''
+    plot_pie_chart = f"Generate a pie chart distribution for a specific column.\n {plot_pie_chart_workflow}"
+
+    plot_histogram_workflow = f'''
+    WORKFLOW: plot_histogram (state machine)
+    State fields:
+    - session_id: string (required)
+    - table_name: string
+    - numeric_column: string
+    - bins: integer (optional, default 10)
+    {RULES}
+    1) Ask for table_name if not provided.
+    2) Ask for numeric_column (e.g., salary, age) if not provided.
+    3) Ask for number of bins if the user wants custom granularity.
+    4) Generate and return a histogram image.
+    '''
+    plot_histogram = f"Generate a histogram to show the frequency distribution of numeric data.\n {plot_histogram_workflow}"

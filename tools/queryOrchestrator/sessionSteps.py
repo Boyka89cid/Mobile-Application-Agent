@@ -37,3 +37,9 @@ class RetrieveRecordSteps(Enum):
     ASK_TABLE_NAME = "ask_table_name"
     GET_COLUMN_NAMES = "get_column_names"
     GET_RECORD = "get_record"
+
+class FilterRecordSteps(Enum):
+    ASK_TABLE_NAME = "ask_table_name"
+    GET_COLUMN_NAMES = "get_column_names"
+    ASK_FILTERS = "ask_filters"
+    EXECUTE_FILTER = "execute_filter"

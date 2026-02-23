@@ -222,5 +222,22 @@ class PostgresHelperFxns:
             logging.exception("Failed to delete record")
             return f"Error deleting record from table {table_name}: {e}", False
 
+    def fetch_filtered_records(self, table_name: str, filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+        try:
+            # WHERE "department" = %s AND "salary" > %s
+            conditions = []
+            values = []
+            for col, val in filters.items():
+                conditions.append(f'"{col}" = %s')
+                values.append(val)
+            
+            where_clause = " AND ".join(conditions)
+            query = f'SELECT * FROM "{table_name}" WHERE {where_clause};'
+            
+            results = self.adapter.execute_query(query, tuple(values))
+            return results
+        except Exception as e:
+            logging.exception("Failed to fetch filtered records")
+            return []
 
  

@@ -13,7 +13,8 @@ from tools.queryOrchestrator.sessionDataClasses import (
     SessionStateForDeleteTable,
     SessionStateForAddRecord,
     SessionStateForDeleteRecord,
-    SessionStateForRetrieveRecord
+    SessionStateForRetrieveRecord,
+    SessionStateForFilterRecord
 )
 from tools.queryOrchestrator.sessionSteps import (
     CheckTableSteps,
@@ -22,7 +23,8 @@ from tools.queryOrchestrator.sessionSteps import (
     DeleteTableSteps,
     AddRecordSteps,
     DeleteRecordSteps,
-    RetrieveRecordSteps
+    RetrieveRecordSteps,
+    FilterRecordSteps
 )
 
 TABLECHECKSESSIONS: Dict[str, SessionStateForTableCheck] = {}
@@ -32,6 +34,7 @@ DELETETABLESESSIONS: Dict[str, SessionStateForDeleteTable] = {}
 ADDRECORDSESSIONS: Dict[str, SessionStateForAddRecord] = {}
 DELETERECORDSESSIONS: Dict[str, SessionStateForDeleteRecord] = {}
 RETRIEVERECORDSESSIONS: Dict[str, SessionStateForRetrieveRecord] = {}
+FILTERRECORDSESSIONS: Dict[str, SessionStateForFilterRecord] = {}
 
 def register_orchestration_tools(mcp: FastMCP):
     orchestration_tools = OrchestrationTools(mcp=mcp)
@@ -536,3 +539,49 @@ class OrchestrationTools:
                 "status": f"completed",
                 "message": "Delete record process completed."
             }
+    def filter_records(self, session_state: SessionStateForFilterRecord) -> Dict[str, Any]:
+        def decide_step(s: SessionStateForFilterRecord) -> str:
+            if not bool(s.table_name.strip()):
+                return FilterRecordSteps.ASK_TABLE_NAME.value
+            if not s.columns:
+                return FilterRecordSteps.GET_COLUMN_NAMES.value
+            return FilterRecordSteps.ASK_FILTERS.value
+
+        session = FILTERRECORDSESSIONS.setdefault(session_state.session_id, session_state)
+        
+        # Update session with any new incoming data
+        if session_state.table_name: session.table_name = session_state.table_name
+        if session_state.filters: session.filters.update(session_state.filters)
+
+        session.step = decide_step(session)
+
+        if session.step == FilterRecordSteps.ASK_TABLE_NAME.value:
+            return {
+                "status": "ask_table_name",
+                "message": "Which table would you like to filter records from?"
+            }
+
+        elif session.step == FilterRecordSteps.GET_COLUMN_NAMES.value:
+            if not PostgresHelperFxns(self.adapter).check_table_exists(session.table_name):
+                session.table_name = '' # Reset
+                return {"status": "error", "message": f"Table '{session_state.table_name}' not found."}
+            
+            session.columns = PostgresHelperFxns(self.adapter).get_column_names(session.table_name)
+            return {
+                "status": "ask_filters",
+                "message": f"Table '{session.table_name}' has columns: {', '.join(session.columns)}. Which column(s) and value(s) would you like to filter by? (Provide as a dictionary)"
+            }
+
+        elif session.step == FilterRecordSteps.ASK_FILTERS.value:
+            results = PostgresHelperFxns(self.adapter).fetch_filtered_records(session.table_name, session.filters)
+            FILTERRECORDSESSIONS.pop(session.session_id, None) # Clean up
+            
+            if not results:
+                return {"status": "no_results", "message": "No records matched your filters."}
+            
+            return {
+                "status": "success",
+                "message": f"Found {len(results)} matching records.",
+                "data": results[:5] # Return a snippet for the LLM
+            }
+        

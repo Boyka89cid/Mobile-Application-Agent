@@ -7,7 +7,8 @@ from tools.queryOrchestrator.sessionSteps import (
     DeleteTableSteps,
     AddRecordSteps,
     DeleteRecordSteps,
-    RetrieveRecordSteps
+    RetrieveRecordSteps,
+    FilterRecordSteps
 )
 
 @dataclass
@@ -65,3 +66,11 @@ class SessionStateForRetrieveRecord:
     columns : List[str] | None = None  # List of column names in the table
     column_name: str = ''  # Column name to identify the record
     column_value: Any  | None = None  # Value of the column to identify the record
+
+@dataclass
+class SessionStateForFilterRecord:
+    session_id: str
+    step: str = FilterRecordSteps.ASK_TABLE_NAME.value
+    table_name: str = ''
+    columns: List[str] | None = None
+    filters: Dict[str, Any] = field(default_factory=dict)

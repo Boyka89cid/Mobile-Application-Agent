@@ -119,3 +119,16 @@ class ToolPrompts:
     If any required field is missing, move back to the appropriate ask_* step.
     '''
     retrieve_record_from_table = f"Orchestrate the process of retrieving a record from a specified table in the database based on user input. \n {retrieve_record_from_table_workflow}"
+
+    filter_records_workflow = f'''
+    WORKFLOW: filter_records (state machine)
+    State fields:
+    - session_id: string (required)
+    - table_name: string
+    - filters: dict | null (e.g., {{"department": "Sales"}})
+    {RULES}
+    1) Ask for table_name if not provided.
+    2) Fetch column names and ask user for specific filters (column/value pairs).
+    3) Execute the filter and return matching records.
+    '''
+    filter_records = f"Filter and retrieve multiple records from a table based on specific conditions.\n {filter_records_workflow}"
