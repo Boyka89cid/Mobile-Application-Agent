@@ -1,4 +1,4 @@
-# Mobile Application Agent (MCP Server)
+# PostgreSQL Agent (MCP Server)
 
 A powerful MCP (Model Context Protocol) server designed to interface with PostgreSQL databases. This tool allows users to manage database schemas, visualize data, and perform human-in-the-loop operations via Claude Desktop.
 
@@ -70,11 +70,11 @@ To connect the server to Claude, you must update the Claude Desktop configuratio
       "command": "/Users/YourUsername/miniconda3/envs/agents/bin/uv",
       "args": [
         "run", "--frozen", "--with", "mcp[cli]", "mcp", "run",
-        "/Users/YourUsername/Desktop/Mobile-Application-Agent/mcpServer.py"
+        "/Users/YourUsername/path/Mobile-Application-Agent/mcpServer.py"
       ],
       "env": {
         "PATH": "/Users/YourUsername/miniconda3/envs/agents/bin",
-        "PYTHONPATH": "/Users/YourUsername/Desktop/Mobile-Application-Agent"
+        "PYTHONPATH": "/Users/YourUsername/path/Mobile-Application-Agent"
       }
     }
   }
@@ -90,7 +90,7 @@ To connect the server to Claude, you must update the Claude Desktop configuratio
     "HRAssistantServer": {
       "command": "/Users/YourUsername/miniconda3/envs/agents/bin/python",
       "args": [
-        "/Users/YourUsername/Desktop/Mobile-Application-Agent/mcpServer.py"
+        "/Users/YourUsername/path/Mobile-Application-Agent/mcpServer.py"
       ]
     }
   }
