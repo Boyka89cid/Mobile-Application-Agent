@@ -1,49 +1,123 @@
-# PostgreSQL-Agent
+# Mobile Application Agent (MCP Server)
 
-A repository for building Agent that can build an handle PostgreSQL queries dynamically.
-This will not include the usuage of already exists MCP server which could be 
-taken from GitHub site, [MCP servers](https://github.com) and we are building and maintaining a new MCP servers so to allow
-orchestration to be possible. Since, developing this kind of server will be new 
-because of new tools, prompts and resources required to train LLM, and no one yet has provided
-to give a server like this till now. 
+A powerful MCP (Model Context Protocol) server designed to interface with PostgreSQL databases. This tool allows users to manage database schemas, visualize data, and perform human-in-the-loop operations via Claude Desktop.
 
-**Users or uses are out of scope**: The users who wants to build some
-new features for the application that has never implemented 
-before by anyone would resist using the app because it is very likey that
-the LLM might have the knowledge to do the same. So, our project doesn't 
-kill creativity, it only enhances it.
+---
 
-__Target User:__ This product will be used by the client looking fpr
-an AI agent to develop the basic functionality of the Postgresql
+## 🚀 Prerequisites
 
-__Risk__: One risk we agree cannot ignore is AI/LLM agent capable
-of devlering all the different functionalites. To resolve this problem
-we may add Agent-to-Agent [A2A google](https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/) 
-protocol.
+Before you begin, ensure you have the following installed:
 
-__Team members (TM) roles__ (No team members has joined yet)
+* **[Claude Desktop](https://claude.ai/download)**
+* **[PostgreSQL](https://www.postgresql.org/download/)** (Running and accessible)
+* **[Conda](https://docs.conda.io/en/latest/miniconda.html)** (Miniconda recommended)
+* **[DBeaver](https://dbeaver.io/)** (Recommended for visualizing your database)
 
-**TM-1 initial role**: Find out the relevant information about what
-kind of language is popular or being used nowadays to get an 
-application quickly working. To my knowledge it would be flutter or 
-react native. Having some familiarity with the language would be useful
-because we have to do prompting afterward.
+---
 
-**TM-2 initial role**: Find and read out the relevant information 
-about the MCP servers and already existing tools that are required 
-to build the application. Also find out what tools are not 
-available so that we can enhance the functionality of LLM by providing
-tools to LLMs.
+## 🛠️ Installation
 
-**TM-3 initial role**: Help setting up the environment required 
-for development of resources like choosing language, choosing 
-backend database required for the servers to run, etc.
+### Step 1: Clone or Download
 
-**TM-4 initial role**: Define constraints, safety mechanisms, fallback strategies,
-and monitoring for agent behavior in production-like environments. 
+Download the project files from this repository to your local machine and navigate into the project folder:
+
+```bash
+cd /path/to/Mobile-Application-Agent
+
+```
+
+### Step 2: Configure Database Credentials
+
+Locate `utils/config.py`. Update the `DB_CONFIG` dictionary with your local PostgreSQL credentials.
+
+> **⚠️ Security Warning:** Never commit your real database passwords to a public GitHub repository. Use environment variables if you plan to push your changes.
+
+### Step 3: Setup Environment
+
+Create and activate your Conda environment to ensure all dependencies are managed correctly:
+
+```bash
+# Create and activate
+conda create -n agents python=3.12
+conda activate agents
+
+# Install requirements
+pip install --upgrade pip
+pip install -r requirements.txt
+
+```
+
+---
+
+## ⚙️ Configuration (Claude Desktop)
+
+To connect the server to Claude, you must update the Claude Desktop configuration file.
+
+1. **Locate the config file:**
+* **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+* **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
 
+2. **Add/Update the configuration:**
+*Replace `/YourUsername/` with your actual system username.*
 
+#### Option A: Using `uv` (Recommended)
 
+```json
+{
+  "mcpServers": {
+    "HRAssistantServer": {
+      "command": "/Users/YourUsername/miniconda3/envs/agents/bin/uv",
+      "args": [
+        "run", "--frozen", "--with", "mcp[cli]", "mcp", "run",
+        "/Users/YourUsername/Desktop/Mobile-Application-Agent/mcpServer.py"
+      ],
+      "env": {
+        "PATH": "/Users/YourUsername/miniconda3/envs/agents/bin",
+        "PYTHONPATH": "/Users/YourUsername/Desktop/Mobile-Application-Agent"
+      }
+    }
+  }
+}
+
+```
+
+#### Option B: Using Standard Python
+
+```json
+{
+  "mcpServers": {
+    "HRAssistantServer": {
+      "command": "/Users/YourUsername/miniconda3/envs/agents/bin/python",
+      "args": [
+        "/Users/YourUsername/Desktop/Mobile-Application-Agent/mcpServer.py"
+      ]
+    }
+  }
+}
+
+```
+
+---
+
+## 🚀 Running the Project
+
+1. **Completely quit** Claude Desktop (Cmd+Q / Alt+F4).
+2. **Restart** Claude Desktop.
+3. Look for the "HRAssistantServer" icon or status in your MCP settings inside Claude.
+
+### 🔍 Troubleshooting
+
+* **Logs:** If the server fails to connect, open Claude Desktop and view logs (usually located in `~/Library/Logs/Claude/mcp-server-HRAssistantServer.log`).
+* **Paths:** Ensure every path in your JSON config is an absolute path (starting from `/Users/...`).
+* **Conda:** Ensure you activated the `agents` environment before starting any processes. If the paths are incorrect, Claude cannot find the Python interpreter.
+* **Database:** Use **DBeaver** to verify your PostgreSQL instance is running and your credentials are correct.
+
+---
+
+### Additional Tips
+
+* **Visualizing Data:** We recommend using DBeaver to inspect changes made to your database by the tools.
+* **Human-in-the-Loop:** Many of our tools require explicit confirmation (e.g., typing 'YES') to perform destructive actions like `DROP TABLE`.
 
 
