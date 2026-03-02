@@ -10,7 +10,6 @@
 # import base64
 # from mcp.types import EmbeddedResource
 # from resources.chartsResources import create_ui_resource
-# # 👆 wherever you placed the clone of CreateUIResource()
 
 # def create_png_html_app(uri: str, title: str, png_bytes: bytes) -> EmbeddedResource:
 #     b64 = base64.b64encode(png_bytes).decode("ascii")

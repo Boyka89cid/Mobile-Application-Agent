@@ -28,5 +28,4 @@ def resources(mcp: FastMCP):
         except Exception as e:
             mcp.get_context().session.send_log_message("error", f"Failed to read resource db://hrdataset: {e}")
             #logger.exception("Failed to read resource db://hrdataset")
-            return json.dumps({"error": str(e)})
-        return hrdataset    
+            return json.dumps({"error": str(e)}) 
