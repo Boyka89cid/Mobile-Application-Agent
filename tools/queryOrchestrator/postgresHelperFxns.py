@@ -6,21 +6,21 @@ class PostgresHelperFxns:
     def __init__(self, adapter):
         self.adapter = adapter
 
-    def check_db_tables(self, type) -> str:
+    def check_db_tables(self, _type) -> str:
         try:
-            if type == 'public':
+            if _type == 'public':
                 results = self.adapter.execute_query(
                     "SELECT table_name FROM information_schema.tables WHERE table_schema='public';"
                 )
                 table_names = [row['table_name'] for row in results]
                 return f"Public tables in the database: {table_names}"
-            elif type == 'temporary':
+            elif _type == 'temporary':
                 results = self.adapter.execute_query(
                     "SELECT table_name FROM information_schema.tables WHERE table_type='LOCAL TEMPORARY';"
                 )
                 table_names = [row['table_name'] for row in results]
                 return f"Temporary tables in the database: {table_names}"
-            elif type == 'all':
+            elif _type == 'all':
                 results_public = self.adapter.execute_query(
                     "SELECT table_name FROM information_schema.tables WHERE table_schema='public';"
                 )
@@ -34,19 +34,19 @@ class PostgresHelperFxns:
             #logging.exception("Failed to fetch table names")
             return f"Error fetching table names: {e}"
         
-    def count_db_tables(self, type) -> str:
+    def count_db_tables(self, _type) -> str:
         try:
-            if type == 'public':
+            if _type == 'public':
                 results = self.adapter.execute_query(
                     "SELECT COUNT(*) AS table_count FROM information_schema.tables WHERE table_schema='public';"
                 )
                 return f"Number of public tables: {results[0]['table_count']}"
-            elif type == 'temporary':
+            elif _type == 'temporary':
                 results = self.adapter.execute_query(
                     "SELECT COUNT(*) AS table_count FROM information_schema.tables WHERE table_type='LOCAL TEMPORARY';"
                 )
                 return f"Number of temporary tables: {results[0]['table_count']}"
-            elif type == 'all':
+            elif _type == 'all':
                 results_public = self.adapter.execute_query(
                     "SELECT COUNT(*) AS table_count FROM information_schema.tables WHERE table_schema='public';"
                 )
@@ -120,21 +120,21 @@ class PostgresHelperFxns:
             logging.exception("Failed to fetch table names")
             return []
 
-    def check_db_tables(self, type) -> str:
-        try:
-            if type == 'public':
-                results = self.adapter.execute_query(
-                    "SELECT table_name FROM information_schema.tables WHERE table_schema='public';"
-                )
-            elif type == 'temporary':
-                results = self.adapter.execute_query(
-                    "SELECT table_name FROM information_schema.tables WHERE table_type='LOCAL TEMPORARY';"
-                )
-            table_names = [row['table_name'] for row in results]
-            return f"Tables in the database: {table_names}"
-        except Exception as e:
-            logging.exception("Failed to fetch table names")
-            return f"Error fetching table names: {e}"
+    # def check_db_tables(self, _type) -> str:
+    #     try:
+    #         if _type == 'public':
+    #             results = self.adapter.execute_query(
+    #                 "SELECT table_name FROM information_schema.tables WHERE table_schema='public';"
+    #             )
+    #         elif _type == 'temporary':
+    #             results = self.adapter.execute_query(
+    #                 "SELECT table_name FROM information_schema.tables WHERE table_type='LOCAL TEMPORARY';"
+    #             )
+    #         table_names = [row['table_name'] for row in results]
+    #         return f"Tables in the database: {table_names}"
+    #     except Exception as e:
+    #         logging.exception("Failed to fetch table names")
+    #         return f"Error fetching table names: {e}"
 
     def get_column_names(self, table_name: str) -> List[str]:
         try:

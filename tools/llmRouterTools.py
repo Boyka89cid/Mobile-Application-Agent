@@ -50,7 +50,7 @@ class CheckingToolsLLMAsRouter:
         await self.mcp.get_context().session.send_log_message("critical", "Checking database connection...")
         
         try:
-            results = self.adapter.execute_query("SELECT * FROM hrdataset_clean LIMIT 1;")
+            results = self.adapter.execute_query("SELECT * FROM hrdataset LIMIT 1;")
             return f"Database connection successful. Query results: {results}"
         except Exception as e:
             logging.exception("Database connection failed")

@@ -326,8 +326,8 @@ class OrchestrationTools:
             if session_state.user_confirmation:
                 try:
                     # Protection against deleting the main dataset
-                    if session.table_name.lower() == "hrdataset_clean":
-                        return {"status": "error", "message": "Deletion of the primary 'hrdataset_clean' table is prohibited."}
+                    if session.table_name.lower() == "hrdataset":
+                        return {"status": "error", "message": "Deletion of the primary 'hrdataset' table is prohibited."}
                     
                     message, success = PostgresHelperFxns(self.adapter).delete_table_by_name(session.table_name)
                     if not success:

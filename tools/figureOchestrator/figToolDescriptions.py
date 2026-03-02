@@ -47,3 +47,14 @@ class FigToolPrompts:
     4) Generate and return a histogram image.
     '''
     plot_histogram = f"Generate a histogram to show the frequency distribution of numeric data.\n {plot_histogram_workflow}"
+
+    show_dashboard_workflow = f'''
+    WORKFLOW: show_dashboard (state machine)
+    State fields:
+    - session_id: string (required)
+    {RULES}
+    Rules:
+    1) Do not output HTML code as text on the inline response. Instead, give rendered HTML by creating an HTML artifact.
+    2) Use the SVG code of the image to render the dashboard.
+    '''
+    show_dashboard = f"Show the rendered dashboard.\n {show_dashboard_workflow}"

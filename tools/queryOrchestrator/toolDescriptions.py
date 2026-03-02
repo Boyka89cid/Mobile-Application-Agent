@@ -7,7 +7,11 @@ class ToolPrompts:
     - You can skip a single or multiple steps if you already have the required information. For example, if you already have the table_type, you can skip the ask_table_type step. However, you cannot skip a step or steps if the required information is missing.
     - Respond ONLY with a tool call.
     - Do NOT include any natural-language explanation before the tool call.
-    - After the tool returns, you may present exactly the tool's message verbatim.'''
+    - After the tool returns, you may present exactly the tool's message verbatim.
+    - If you see multiple select options in any step of workflow, use your ask_user_input_v0 widget to ask user to select one of the options. For example, if you have 3 table types to select from, use ask_user_input_v0 with those 3 options as input.
+    - If their are more than 3 options are available in the human-in-the-loop process, select any 3 options to present to the user in ask_user_input_v0 widget. After user selects one of the 3 options, present the next 3 options and so on until all options are presented. You can use the same ask_user_input_v0 widget to present all options in this way.
+    - Do NOT call the final tool unless you have all the required information and user_confirmation=true.
+    '''
     # Tool descriptions for Orchestration Tools (Human-in-the-loop)
     create_table_workflow = f'''
     WORKFLOW: create_table (state machine)
@@ -21,7 +25,7 @@ class ToolPrompts:
     {RULES}
     1) ask user for table_type (public/temporary) if not provided.
     2) ask user for table_name if not provided.
-    3) ask user for columns list if not provided.
+    3) ask user for columns list if not provided. Also, provide some suggestions for column names and types based on common patterns.
     4) ask for yes/no. Set user_confirmation accordingly.
     5) call create_table ONLY if table_type, table_name, columns are non-null AND user_confirmation=true.
     If any required field is missing, move back to the appropriate ask_* step.
