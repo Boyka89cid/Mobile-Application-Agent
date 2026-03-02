@@ -7,6 +7,7 @@ from tools.queryOrchestrator.sessionSteps import (
     DeleteTableSteps,
     AddRecordSteps,
     DeleteRecordSteps,
+    PatternMatchRecordSteps,
     RetrieveRecordSteps,
     FilterRecordSteps
 )
@@ -74,3 +75,12 @@ class SessionStateForFilterRecord:
     table_name: str = ''
     columns: List[str] | None = None
     filters: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class SessionStateForPatternMatchRecord:
+    session_id: str
+    step: str = PatternMatchRecordSteps.ASK_TABLE_NAME.value
+    table_name: str = ''
+    columns: List[str] | None = None
+    column_name: str = ''  # Column name to apply the pattern match
+    pattern: str = ''  # Pattern to match in the specified column

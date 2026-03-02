@@ -1,11 +1,8 @@
-import base64, mimetypes
 from mcp.server.fastmcp import FastMCP
 from tools.queryOrchestrator import orchestrationTools
 from tools.figureOchestrator import figOchestrationTools
-from tools import plotRenderTools
-from resources import tablesResources, chartsResources
+from resources import tablesResources
 from tools import llmRouterTools
-from mcp.server.stdio import stdio_server
 
 mcp = FastMCP(
     "HRAssistantServer",
@@ -32,15 +29,6 @@ orchestrationTools.register_orchestration_tools(mcp)
 figOchestrationTools.register_fig_orchestration_tools(mcp)
 tablesResources.resources(mcp)
 
-# @mcp.tool("get_roots")
-# def get_mcp_roots():
-#     context = mcp.get_context()
-#     session = context.session
-    
-#     roots = getattr(context, "roots", None) or getattr(context, "root_uris", None)
-#     if not roots:
-#         raise ValueError("No roots provided by client")
-
 @mcp.resource("roots://list")
 def list_roots():
     return {
@@ -51,6 +39,19 @@ def list_roots():
             },
             ]
     }
+
+if __name__ == "__main__":
+    mcp.run()
+    #asyncio.run(main())
+    
+# @mcp.tool("get_roots")
+# def get_mcp_roots():
+#     context = mcp.get_context()
+#     session = context.session
+    
+#     roots = getattr(context, "roots", None) or getattr(context, "root_uris", None)
+#     if not roots:
+#         raise ValueError("No roots provided by client")
 
 # @mcp.tool()
 # def process_file(filename: str) -> str:
@@ -134,7 +135,3 @@ def list_roots():
 #             # ),
 #             # experimental_capabilities=["ui_rendering", "async_tools"]
 #         )
-
-if __name__ == "__main__":
-    mcp.run()
-    #asyncio.run(main())

@@ -83,20 +83,6 @@ class PostgresHelperFxns:
             #logging.exception("Failed to create table")
             return f"Error creating table {table_name}: {e}", False
 
-    def list_all_tables(self) -> List[str]:
-        try:
-            results_public = self.adapter.execute_query(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema='public';"
-            )
-            results_temporary = self.adapter.execute_query(
-                "SELECT table_name FROM information_schema.tables WHERE table_type='LOCAL TEMPORARY';"
-            )
-            table_names = [row['table_name'] for row in results_public + results_temporary]
-            return table_names
-        except Exception as e:
-            logging.exception("Failed to fetch table names")
-            return []
-         
     def delete_table_by_name(self, table_name: str):
         try:
             query = f"DROP TABLE IF EXISTS {table_name};"
@@ -119,22 +105,6 @@ class PostgresHelperFxns:
         except Exception as e:
             logging.exception("Failed to fetch table names")
             return []
-
-    # def check_db_tables(self, _type) -> str:
-    #     try:
-    #         if _type == 'public':
-    #             results = self.adapter.execute_query(
-    #                 "SELECT table_name FROM information_schema.tables WHERE table_schema='public';"
-    #             )
-    #         elif _type == 'temporary':
-    #             results = self.adapter.execute_query(
-    #                 "SELECT table_name FROM information_schema.tables WHERE table_type='LOCAL TEMPORARY';"
-    #             )
-    #         table_names = [row['table_name'] for row in results]
-    #         return f"Tables in the database: {table_names}"
-    #     except Exception as e:
-    #         logging.exception("Failed to fetch table names")
-    #         return f"Error fetching table names: {e}"
 
     def get_column_names(self, table_name: str) -> List[str]:
         try:
@@ -240,4 +210,11 @@ class PostgresHelperFxns:
             logging.exception("Failed to fetch filtered records")
             return []
 
- 
+    def match_pattern_in_column(self, table_name: str, column_name: str, pattern: str) -> List[Dict[str, Any]]:
+        try:
+            query = f'SELECT * FROM "{table_name}" WHERE "{column_name}" LIKE %s;'
+            results = self.adapter.execute_query(query, (pattern,))
+            return results
+        except Exception as e:
+            logging.exception("Failed to match pattern in column")
+            return []

@@ -136,3 +136,18 @@ class ToolPrompts:
     3) Execute the filter and return matching records.
     '''
     filter_records = f"Filter and retrieve multiple records from a table based on specific conditions.\n {filter_records_workflow}"
+
+    pattern_match_records_workflow = f'''
+    WORKFLOW: pattern_match_records (state machine)
+    State fields:
+    - session_id: string (required)
+    - table_name: string
+    - column_name: string
+    - pattern: string
+    {RULES}
+    1) Ask for table_name if not provided.
+    2) Fetch column names and ask user to select a column for pattern matching.
+    3) Ask user for the pattern to match (e.g., "name starts with 'A'").
+    4) Execute the pattern match and return matching records.
+    '''
+    pattern_match_records = f"Match a pattern in a specific column and retrieve matching records from a table based on user input.\n {pattern_match_records_workflow}" 

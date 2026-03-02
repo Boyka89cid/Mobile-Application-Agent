@@ -7,6 +7,7 @@ from adapters.postgresAdapter import PostgresAdapter
 from tools.queryOrchestrator.postgresHelperFxns import PostgresHelperFxns
 from tools.llmRouterTools import CheckingToolsLLMAsRouter
 from tools.queryOrchestrator.sessionDataClasses import (
+    SessionStateForPatternMatchRecord,
     SessionStateForTableCheck,
     SessionStateForTableCount,
     SessionStateForCreateTable,
@@ -23,6 +24,7 @@ from tools.queryOrchestrator.sessionSteps import (
     DeleteTableSteps,
     AddRecordSteps,
     DeleteRecordSteps,
+    PatternMatchRecordSteps,
     RetrieveRecordSteps,
     FilterRecordSteps
 )
@@ -35,6 +37,7 @@ ADDRECORDSESSIONS: Dict[str, SessionStateForAddRecord] = {}
 DELETERECORDSESSIONS: Dict[str, SessionStateForDeleteRecord] = {}
 RETRIEVERECORDSESSIONS: Dict[str, SessionStateForRetrieveRecord] = {}
 FILTERRECORDSESSIONS: Dict[str, SessionStateForFilterRecord] = {}
+PATTERNMATCHRECORDSESSIONS: Dict[str, SessionStateForPatternMatchRecord] = {}
 
 def register_orchestration_tools(mcp: FastMCP):
     orchestration_tools = OrchestrationTools(mcp=mcp)
@@ -539,6 +542,8 @@ class OrchestrationTools:
                 "status": f"completed",
                 "message": "Delete record process completed."
             }
+    
+    # Finite State Machine for Filter Record Orchestration
     def filter_records(self, session_state: SessionStateForFilterRecord) -> Dict[str, Any]:
         def decide_step(s: SessionStateForFilterRecord) -> str:
             if not bool(s.table_name.strip()):
@@ -584,4 +589,65 @@ class OrchestrationTools:
                 "message": f"Found {len(results)} matching records.",
                 "data": results[:5] # Return a snippet for the LLM
             }
+
+    # Finite State Machine for Pattern Match Record Orchestration
+    def pattern_match_records(self, session_state: SessionStateForPatternMatchRecord) -> Dict[str, Any]:    
+
+        def decide_step(s: SessionStateForPatternMatchRecord) -> str:
+            if not bool(s.table_name.strip()):
+                return PatternMatchRecordSteps.ASK_TABLE_NAME.value
+            if not s.columns:
+                return PatternMatchRecordSteps.GET_COLUMN_NAMES.value
+            if not bool(s.column_name.strip()):
+                return PatternMatchRecordSteps.ASK_PATTERN.value
+            return PatternMatchRecordSteps.EXECUTE_PATTERN_MATCH.value
+
+        session = PATTERNMATCHRECORDSESSIONS.setdefault(session_state.session_id, session_state)
         
+        # Update session with any new incoming data
+        if session_state.table_name: session.table_name = session_state.table_name
+        if session_state.column_name: session.column_name = session_state.column_name
+        if session_state.pattern: session.pattern = session_state.pattern
+
+        session.step = decide_step(session)
+
+        if session.step == PatternMatchRecordSteps.ASK_TABLE_NAME.value:
+            return {
+                "status": "ask_table_name",
+                "message": "Which table would you like to perform pattern match on?"
+            }
+
+        elif session.step == PatternMatchRecordSteps.GET_COLUMN_NAMES.value:
+            if not PostgresHelperFxns(self.adapter).check_table_exists(session.table_name):
+                session.table_name = '' # Reset
+                return {"status": "error", "message": f"Table '{session_state.table_name}' not found."}
+            
+            session.columns = PostgresHelperFxns(self.adapter).get_column_names(session.table_name)
+            return {
+                "status": "ask_column_for_pattern",
+                "message": f"Table '{session.table_name}' has columns: {', '.join(session.columns)}. Which column would you like to apply the pattern match on?"
+            }
+        
+        elif session.step == PatternMatchRecordSteps.ASK_PATTERN.value:
+            return {
+                "status": "ask_pattern",
+                "message": f"What pattern would you like to match in column '{session.column_name}'? (Use SQL LIKE syntax, e.g. '%pattern%')"
+            }
+        
+        elif session.step == PatternMatchRecordSteps.EXECUTE_PATTERN_MATCH.value:
+            results: List[Any] = PostgresHelperFxns(self.adapter).match_pattern_in_column(
+                table_name=session.table_name,
+                column_name=session.column_name,
+                pattern=session.pattern
+            )
+            PATTERNMATCHRECORDSESSIONS.pop(session.session_id, None) # Clean up
+            
+            if not results:
+                return {"status": "no_results", "message": "No records matched your pattern."}
+            
+            return {
+                "status": "success",
+                "message": f"Found {len(results)} matching records.",
+                "data": results[:5], # Return a snippet for the LLM
+                "count": len(results) # Return total count of matched records
+            }

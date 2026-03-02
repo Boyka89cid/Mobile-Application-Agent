@@ -43,3 +43,9 @@ class FilterRecordSteps(Enum):
     GET_COLUMN_NAMES = "get_column_names"
     ASK_FILTERS = "ask_filters"
     EXECUTE_FILTER = "execute_filter"
+
+class PatternMatchRecordSteps(Enum):
+    ASK_TABLE_NAME = "ask_table_name"
+    GET_COLUMN_NAMES = "get_column_names"
+    ASK_PATTERN = "ask_pattern"
+    EXECUTE_PATTERN_MATCH = "execute_pattern_match"
