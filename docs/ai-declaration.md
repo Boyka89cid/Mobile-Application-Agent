@@ -125,5 +125,6 @@ Claude produced a full markdown README with installation steps, a prerequisites 
 ### Verification
 The README was reviewed by the teammate against the actual project setup to confirm all instructions were accurate and reproducible in a fresh environment.
 
+---
 
 All AI-generated outputs were treated as drafts and verified by at least one team member before being incorporated into the project.
