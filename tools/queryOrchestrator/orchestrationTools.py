@@ -822,10 +822,11 @@ class OrchestrationTools:
                 session.table_name = '' # Reset
                 return {"status": "error", "message": f"Table '{session_state.table_name}' not found."}
             
-            session.columns = PostgresHelperFxns(self.adapter).find_columns_with_unique_values(session.table_name)
+            _columns = PostgresHelperFxns(self.adapter).find_columns_with_unique_values(session.table_name)
+            session.columns = _columns
             return {
                 "status": "ask_primary_key",
-                "message": f"Table '{session.table_name}' has columns with unique values: {', '.join(session.columns)}. Which column would you like to set as the primary key?"
+                "message": f"Table '{session.table_name}' has columns with unique values: {_columns}. Which column would you like to set as the primary key?"
             }
         
         elif session.step == SetPrimaryKeySteps.ASK_PRIMARY_KEY_COLUMN.value:

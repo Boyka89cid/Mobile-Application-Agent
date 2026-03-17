@@ -408,24 +408,51 @@ class PostgresHelperFxns:
 
     def find_columns_with_unique_values(self, table_name: str) -> List[str]:
         try:
-            query = sql.SQL("""
+            # Step 1: get all column names
+            column_query = """
                 SELECT column_name
                 FROM information_schema.columns
                 WHERE table_name = %s
-                AND column_name NOT IN (
-                    SELECT column_name
-                    FROM (
-                        SELECT column_name
-                        FROM {table_name}
-                        GROUP BY column_name
-                        HAVING COUNT(*) > 1
-                    ) AS subquery
-                );
-            """).format(table_name=sql.Identifier(table_name))
+                ORDER BY ordinal_position;
+            """
+            columns = self.adapter.execute_query(column_query, (table_name,))
 
-            results = self.adapter.execute_query(query, (table_name,))
-            return [row['column_name'] for row in results]
-        except Exception as e:
+            unique_columns = []
+
+            # Step 2: check each column separately
+            for row in columns:
+                column_name = row["column_name"]
+
+                query = sql.SQL("""
+                    SELECT 
+                        COUNT(*) AS total_rows,
+                        COUNT(DISTINCT {col}) AS distinct_rows,
+                        COUNT({col}) AS non_null_rows
+                    FROM {table};
+                """).format(
+                    col=sql.Identifier(column_name),
+                    table=sql.Identifier(table_name)
+                )
+
+                result = self.adapter.execute_query(query)
+                if not result:
+                    continue
+
+                total_rows = result[0]["total_rows"]
+                distinct_rows = result[0]["distinct_rows"]
+                non_null_rows = result[0]["non_null_rows"]
+
+                # Option A: uniqueness ignoring NULLs
+                if distinct_rows == non_null_rows:
+                    unique_columns.append(column_name)
+
+                # Option B: strict uniqueness including NULL logic
+                # if distinct_rows == total_rows:
+                #     unique_columns.append(column_name)
+
+            return unique_columns
+
+        except Exception:
             logging.exception("Failed to find columns with unique values")
             return []
 
