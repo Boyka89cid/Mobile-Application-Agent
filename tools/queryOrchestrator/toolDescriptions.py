@@ -9,7 +9,7 @@ class ToolPrompts:
     - Do NOT include any natural-language explanation before the tool call.
     - After the tool returns, you may present exactly the tool's message verbatim.
     - If you see multiple select options in any step of workflow, use your ask_user_input_v0 widget to ask user to select one of the options. For example, if you have 3 table types to select from, use ask_user_input_v0 with those 3 options as input.
-    - If their are more than 3 options are available in the human-in-the-loop process, select any 3 options to present to the user in ask_user_input_v0 widget. After user selects one of the 3 options, present the next 3 options and so on until all options are presented. You can use the same ask_user_input_v0 widget to present all options in this way.
+    - If their are more than 3 options are available which are short in text (max 20 characters) for the human-in-the-loop process, select any 3 options to present to the user in ask_user_input_v0 widget. After user selects one of the 3 options, present the next 3 options and so on until all options are presented. You can use the same ask_user_input_v0 widget to present all options in this way.
     - Do NOT call the final tool unless you have all the required information and user_confirmation=true.
     '''
     # Tool descriptions for Orchestration Tools (Human-in-the-loop)
@@ -21,13 +21,16 @@ class ToolPrompts:
     - table_type: string
     - table_name: string
     - columns: list of {{ name: string, type: string }} | null
+    - primary_key: bool | null
+    - primary_key_column: string
     - user_confirmation: bool | null
     {RULES}
     1) ask user for table_type (public/temporary) if not provided.
     2) ask user for table_name if not provided.
     3) ask user for columns list if not provided. Also, provide some suggestions for column names and types based on common patterns.
-    4) ask for yes/no. Set user_confirmation accordingly.
-    5) call create_table ONLY if table_type, table_name, columns are non-null AND user_confirmation=true.
+    4) ask user if they want to set a primary key. If yes, ask for the primary key column.
+    5) ask for yes/no. Set user_confirmation accordingly.
+    6) call create_table ONLY if table_type, table_name, columns are non-null AND user_confirmation=true.
     If any required field is missing, move back to the appropriate ask_* step.
     '''
     create_table = f"Orchestrate the process of creating a new table in the database based on user input.\n {create_table_workflow}"
@@ -88,6 +91,28 @@ class ToolPrompts:
     '''
     add_record_to_table = f"Orchestrate the process of adding a new record to a specified table in the database based on user input.\n {add_record_to_table_workflow}"
 
+    update_record_in_table_workflow = f'''
+    WORKFLOW: update_record_in_table (state machine)
+    State fields:
+    - session_id: string (required)
+    - step: enum[ ask_table_name, get_column_names, ask_record_identifier, ask_updated_values, user_confirmation, update_record]
+    - table_name: string
+    - columns: list[string] | null
+    - column_name: string
+    - column_value: string | null
+    - updated_values: dict | null
+    - user_confirmation: bool | null
+    {RULES}
+    1) ask user for table_name if not provided.
+    2) fetch column names for the given table_name and store it in columns.
+    3) ask user to select the column name and provide its corresponding value to identify the record(s) to be updated. Store the selected column name and value in column_name and column_value respectively.
+    4) ask user to provide the updated values for the record as a dictionary with column names as keys and updated values as values, and store it in updated_values.
+    5) ask for yes/no. Set user_confirmation accordingly.
+    6) call update_record ONLY if table_name, column_name, column_value, updated_values are non-null AND user_confirmation=true.
+    If any required field is missing, move back to the appropriate ask_* step.
+    '''
+    update_record_in_table = f"Orchestrate the process of updating a record in a specified table in the database based on user input.\n {update_record_in_table_workflow}"  
+
     delete_record_from_table_workflow = f'''
     WORKFLOW: delete_record_from_table (state machine)
     State fields:
@@ -131,7 +156,7 @@ class ToolPrompts:
     - table_name: string
     - filters: dict | null (e.g., {{"department": "Sales"}})
     {RULES}
-    1) Ask for table_name if not provided.
+    1) Ask for table_name if not provided earlier by the user.
     2) Fetch column names and ask user for specific filters (column/value pairs).
     3) Execute the filter and return matching records.
     '''
@@ -145,9 +170,58 @@ class ToolPrompts:
     - column_name: string
     - pattern: string
     {RULES}
-    1) Ask for table_name if not provided.
+    1) Ask for table_name if not provided earlier by the user.
     2) Fetch column names and ask user to select a column for pattern matching.
     3) Ask user for the pattern to match (e.g., "name starts with 'A'").
     4) Execute the pattern match and return matching records.
     '''
     pattern_match_records = f"Match a pattern in a specific column and retrieve matching records from a table based on user input.\n {pattern_match_records_workflow}" 
+
+    set_primary_key_workflow = f'''
+    WORKFLOW: set_primary_key (state machine)
+    State fields:
+    - session_id: string (required)
+    - step: enum[ ask_table_name, get_column_names, ask_primary_key_column, set_primary_key]
+    - table_name: string
+    - columns: list[string] | null
+    - primary_key_column: string | null
+    {RULES}
+    1) Ask for table_name if not provided earlier by the user.
+    2) Fetch column names and ask user to select a column to set as primary key.
+    3) Ask user to confirm setting the selected column as primary key.
+    4) Execute the operation to set the primary key if user_confirmation=true.
+    '''
+    set_primary_key = f"Orchestrate the process of setting a primary key for a specified table in the database based on user input. \n {set_primary_key_workflow}"  
+
+    set_foreign_key_workflow = f'''
+    WORKFLOW: set_foreign_key (state machine)
+    State fields:
+    - session_id: string (required)
+    - step: enum[ ask_source_table, ask_source_column, ask_target_table, ask_target_column, set_foreign_key]
+    - source_table: string
+    - source_column: string
+    - target_table: string
+    - target_column: string
+    - source_columns: list[string] | null
+    - target_columns: list[string] | null
+    {RULES}
+    1) Ask for source_table if not provided earlier by the user.
+    2) Fetch column names for source_table and ask user to select the source_column.
+    3) Ask for target_table if not provided earlier by the user.
+    4) Fetch column names for target_table and ask user to select the target_column.
+    5) Ask user to confirm setting the foreign key relationship between source_table.source_column and target_table.target_column.
+    '''
+    set_foreign_key = f"Orchestrate the process of setting a foreign key relationship between two tables in the database based on user input. \n {set_foreign_key_workflow}"
+
+    generate_schema_graph_workflow = f'''
+    WORKFLOW: generate_schema_graph (state machine)
+    State fields:
+    - session_id: string (required)
+    - step: enum[ fetch_tables, fetch_foreign_keys, build_graph]
+    - graph_data: dict | null
+    {RULES}
+    1) Fetch the list of all tables in the database.
+    2) Fetch the list of all foreign key relationships in the database.
+    3) Build a graph data structure representing the database schema using the fetched tables and foreign keys, and get the graph structure.
+    '''
+    generate_schema_graph = f"Orchestrate the process of generating a graph representation of the database schema based on user input. \n {generate_schema_graph_workflow}"

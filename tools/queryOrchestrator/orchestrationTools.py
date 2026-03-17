@@ -1,12 +1,14 @@
-import inspect, logging
+import inspect, logging, base64
+import mimetypes
 from mcp.server.fastmcp import FastMCP
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from utils.config import Configuration
 from tools.queryOrchestrator.toolDescriptions import ToolPrompts
 from adapters.postgresAdapter import PostgresAdapter
 from tools.queryOrchestrator.postgresHelperFxns import PostgresHelperFxns
-from tools.llmRouterTools import CheckingToolsLLMAsRouter
+from mcp.types import TextContent, ImageContent
 from tools.queryOrchestrator.sessionDataClasses import (
+    SessionStateForGenerateSchemaGraph,
     SessionStateForPatternMatchRecord,
     SessionStateForTableCheck,
     SessionStateForTableCount,
@@ -14,19 +16,26 @@ from tools.queryOrchestrator.sessionDataClasses import (
     SessionStateForDeleteTable,
     SessionStateForAddRecord,
     SessionStateForDeleteRecord,
+    SessionStateForUpdateRecord,
     SessionStateForRetrieveRecord,
-    SessionStateForFilterRecord
+    SessionStateForFilterRecord,
+    SessionStateSettingPrimaryKey,
+    SessionStateForSettingForeignKey
 )
 from tools.queryOrchestrator.sessionSteps import (
     CheckTableSteps,
     CountTableSteps,
+    GenerateSchemaGraphSteps,
+    SetForeignKeySteps,
     CreateTableSteps,
     DeleteTableSteps,
     AddRecordSteps,
     DeleteRecordSteps,
     PatternMatchRecordSteps,
     RetrieveRecordSteps,
-    FilterRecordSteps
+    FilterRecordSteps,
+    SetPrimaryKeySteps,
+    UpdateRecordSteps
 )
 
 TABLECHECKSESSIONS: Dict[str, SessionStateForTableCheck] = {}
@@ -34,13 +43,17 @@ TABLECOUNTSESSIONS: Dict[str, SessionStateForTableCount] = {}
 CREATETABLESESSIONS: Dict[str, SessionStateForCreateTable] = {}
 DELETETABLESESSIONS: Dict[str, SessionStateForDeleteTable] = {}
 ADDRECORDSESSIONS: Dict[str, SessionStateForAddRecord] = {}
+UPDATERECORDSESSIONS: Dict[str, SessionStateForUpdateRecord] = {}
 DELETERECORDSESSIONS: Dict[str, SessionStateForDeleteRecord] = {}
 RETRIEVERECORDSESSIONS: Dict[str, SessionStateForRetrieveRecord] = {}
 FILTERRECORDSESSIONS: Dict[str, SessionStateForFilterRecord] = {}
 PATTERNMATCHRECORDSESSIONS: Dict[str, SessionStateForPatternMatchRecord] = {}
+SETTINGPRIMARYKEYSESSIONS: Dict[str, SessionStateSettingPrimaryKey] = {}
+SETFOREIGNKEYSESSIONS: Dict[str, SessionStateForSettingForeignKey] = {}
+GENERATESCHEMAGRAPHSESSIONS : Dict[str, SessionStateForGenerateSchemaGraph] = {}
 
 def register_orchestration_tools(mcp: FastMCP):
-    orchestration_tools = OrchestrationTools(mcp=mcp)
+    orchestration_tools = OrchestrationTools(mcp=mcp, adapter=PostgresAdapter(config=Configuration.DB_CONFIG))
     available_tools = [name for name, func in inspect.getmembers(OrchestrationTools, predicate=inspect.isfunction) if not name.startswith('_')]
     for tool_name in available_tools:
         logging.info(f"Registering orchestration tool: {tool_name}")
@@ -52,9 +65,9 @@ def register_orchestration_tools(mcp: FastMCP):
 
 class OrchestrationTools:
 
-    def __init__(self, mcp: FastMCP):
+    def __init__(self, mcp: FastMCP, adapter: PostgresAdapter):
         self.mcp = mcp
-        self.adapter = PostgresAdapter(config=Configuration.DB_CONFIG)
+        self.adapter = adapter
 
     # Finite State Machine for Check Table Types Orchestration
     def check_tables(self, session_state: SessionStateForTableCheck) -> Dict[str, Any]:
@@ -144,14 +157,18 @@ class OrchestrationTools:
             has_table_type = bool(s.table_type.strip())
             has_table_name = bool(s.table_name.strip())
             has_columns = bool(s.columns)  # True if list is non-empty; False for None or []
+            has_primary_key = s.primary_key_column
             has_confirmation = s.user_confirmation
+            
             if not has_table_type:
-                return CheckTableSteps.ASK_TYPE.value
+                return CreateTableSteps.ASK_TYPE.value
             if has_table_type and not has_table_name:
                 return CreateTableSteps.ASK_TABLE_NAME.value
             if has_table_type and has_table_name and not has_columns:
                 return CreateTableSteps.ASK_COLUMNS.value
-            if has_table_type and has_table_name and has_columns and has_confirmation is None:
+            if has_table_type and has_table_name and has_columns and has_primary_key is None:
+                return CreateTableSteps.ASK_PRIMARY_KEY.value
+            if has_table_type and has_table_name and has_columns and has_primary_key is not None and has_confirmation is None:
                 return CreateTableSteps.USER_CONFIRMATION.value
             return CreateTableSteps.CREATE_TABLE.value 
             
@@ -165,6 +182,10 @@ class OrchestrationTools:
             session.table_name = session_state.table_name
         if session_state.columns is not None:
             session.columns = session_state.columns
+        if session_state.primary_key is not None:
+            session.primary_key = session_state.primary_key
+        if session_state.primary_key_column is not None:
+            session.primary_key_column = session_state.primary_key_column
         if session_state.user_confirmation is not None:
             session.user_confirmation = session_state.user_confirmation
         
@@ -185,6 +206,11 @@ class OrchestrationTools:
                 "status": "ask_columns",
                 "message": f"Please provide the columns for the table"
             }
+        elif session.step == CreateTableSteps.ASK_PRIMARY_KEY.value:
+            return {
+                "status": "ask_primary_key",
+                "message": f"Do you want to set a primary key for the table? If yes, which column would you like to set as the primary key?"
+            }
         elif session.step == CreateTableSteps.USER_CONFIRMATION.value:
                 return {
                     "status": "table_summary",
@@ -200,7 +226,8 @@ class OrchestrationTools:
                 result, success = PostgresHelperFxns(self.adapter).create_new_table(
                     table_type=session.table_type,
                     table_name=session.table_name,
-                    columns=session.columns
+                    columns=session.columns,
+                    primary_key_column=session.primary_key_column if session.primary_key else None
                 )
                 if success:
                     CREATETABLESESSIONS.pop(session.session_id, None)  # Clean up session
@@ -221,8 +248,6 @@ class OrchestrationTools:
                 "status": "completed",
                 "message": "Table creation process completed."
             }
-    
-       # Finite State Machine for Add Record Orchestration
     
     # Finite State Machine for Retrieve Record Orchestration
     def retrieve_record_from_table(self, session_state: SessionStateForRetrieveRecord) -> Dict[str, Any]:
@@ -358,15 +383,15 @@ class OrchestrationTools:
         def decide_step(s: SessionStateForAddRecord) -> str:
             has_table = bool(s.table_name.strip())
             has_record = bool(s.record)  # True if dict is non-empty; False for None or {}
-            validated = s.validated
+            user_confirmation = s.user_confirmation
 
             if not has_table and not has_record:
                 return AddRecordSteps.ASK_TABLE_NAME.value
             elif has_table and not has_record:
                 return AddRecordSteps.VALIDATE_RECORD.value
-            elif has_table and has_record and validated is None:
+            elif has_table and has_record and user_confirmation is None:
                 return AddRecordSteps.USER_CONFIRMATION.value
-            elif has_table and has_record and validated:
+            elif has_table and has_record and user_confirmation is not None:
                 return AddRecordSteps.ADD_RECORD.value
             else:                
                 return AddRecordSteps.ADD_RECORD.value  # Default to adding record if all info is present
@@ -377,10 +402,8 @@ class OrchestrationTools:
             sessions.table_name = session_state.table_name
         if session_state.record is not None:
             sessions.record = session_state.record
-        if session_state.validated is not None:
-            sessions.validated = session_state.validated
-        if session_state.record is not None:
-            sessions.record = session_state.record
+        if session_state.user_confirmation is not None:
+            sessions.user_confirmation = session_state.user_confirmation
         
         sessions.step = decide_step(sessions)
 
@@ -409,10 +432,10 @@ class OrchestrationTools:
         elif sessions.step == AddRecordSteps.USER_CONFIRMATION.value:
             return {
                 "status": "record_summary",
-                "message": f"Are you sure to add the following record to table {sessions.table_name}: {sessions.record}."
+                "message": f"Are you sure to add the following record to table {sessions.table_name}: {sessions.record}. with {sessions}"
             }
         elif sessions.step == AddRecordSteps.ADD_RECORD.value:
-            if sessions.validated is False:
+            if sessions.user_confirmation is False:
                 return {
                     "status": "cancelled",
                     "message": "Record addition cancelled by the user."
@@ -442,6 +465,120 @@ class OrchestrationTools:
                 "message": "Add record process completed."
             }
     
+    # Finite State Machine for Update Record Orchestration
+    def update_record_in_table(self, session_state: SessionStateForUpdateRecord) -> Dict[str, Any]:
+
+        def decide_step(s: SessionStateForUpdateRecord) -> str:
+            has_table = bool(s.table_name.strip())
+            has_columns = bool(s.columns)  # True if list is non-empty; False for None or []
+            has_record_identifier = bool(s.column_name.strip()) and s.column_value is not None
+            has_updated_values = bool(s.updated_values)  # True if dict is non-empty; False for None or {}
+            user_confirmation = s.user_confirmation
+
+            if not has_table:
+                return UpdateRecordSteps.ASK_TABLE_NAME.value
+            elif has_table and not has_columns:
+                return UpdateRecordSteps.GET_COLUMN_NAMES.value
+            elif has_table and has_columns and not has_record_identifier:
+                return UpdateRecordSteps.ASK_RECORD_IDENTIFIER.value
+            elif has_table and has_columns and has_record_identifier and not has_updated_values:
+                return UpdateRecordSteps.ASK_UPDATED_VALUES.value
+            elif has_table and has_columns and has_record_identifier and has_updated_values and user_confirmation is None:
+                return UpdateRecordSteps.USER_CONFIRMATION.value
+            elif has_table and has_columns and has_record_identifier and has_updated_values and user_confirmation is not None:
+                return UpdateRecordSteps.UPDATE_RECORD.value
+            else:
+                return UpdateRecordSteps.UPDATE_RECORD.value  # Default to updating record if all info is present
+
+        # Set default returns key if session exists else create new session
+        sessions = UPDATERECORDSESSIONS.setdefault(session_state.session_id, session_state)
+        if session_state.table_name is not None:
+            sessions.table_name = session_state.table_name
+        if session_state.columns is not None:
+            sessions.columns = session_state.columns
+        if session_state.column_name is not None:
+            sessions.column_name = session_state.column_name
+        if session_state.column_value is not None:
+            sessions.column_value = session_state.column_value
+        if session_state.updated_values is not None:
+            sessions.updated_values = session_state.updated_values
+        if session_state.user_confirmation is not None:
+            sessions.user_confirmation = session_state.user_confirmation
+        
+        sessions.step = decide_step(sessions)
+
+        if sessions.step == UpdateRecordSteps.ASK_TABLE_NAME.value:
+            public_tables = PostgresHelperFxns(self.adapter).check_db_tables('public')
+            temporary_tables = PostgresHelperFxns(self.adapter).check_db_tables('temporary')
+            tables = f"Public tables: {public_tables}. Temporary tables: {temporary_tables}"
+            return {
+                "status": "ask_table_name",
+                "message": f"Please provide the name of the table you want to update a record in. {tables}"
+            }
+        elif sessions.step == UpdateRecordSteps.GET_COLUMN_NAMES.value:
+            if sessions.table_name not in PostgresHelperFxns(self.adapter).list_all_tables():
+                sessions.step = UpdateRecordSteps.ASK_TABLE_NAME.value
+                return {
+                    "status": "error",
+                    "message": f"Table '{sessions.table_name}' does not exist. Please provide a valid table name."
+                }
+            columns_names = PostgresHelperFxns(self.adapter).get_column_names(sessions.table_name)
+            columns_names_str = ', '.join(columns_names)
+            sessions.columns = columns_names
+            message = f"The table {sessions.table_name} has the following columns: {columns_names_str}. Please provide the column and value to identify the record to be updated."
+            return {
+                "status": f"ask_record_identifier",
+                "message": message
+            }
+        elif sessions.step == UpdateRecordSteps.ASK_RECORD_IDENTIFIER.value:
+            example_records_in_column = PostgresHelperFxns(self.adapter).check_table_example_by_column(sessions.table_name, sessions.column_name)
+            message = f"To identify the record to be updated, please provide the column name and its corresponding value. Here are some example records for reference: {example_records_in_column}"
+            return {
+                "status": "ask_record_identifier",
+                "message": message
+            }
+        elif sessions.step == UpdateRecordSteps.ASK_UPDATED_VALUES.value:
+            return {
+                "status": "ask_updated_values",
+                "message": f"Please provide the updated values for the record with column names and their corresponding new values."
+            }
+        elif sessions.step == UpdateRecordSteps.USER_CONFIRMATION.value:
+            return {
+                "status": "record_summary",
+                "message": f"Are you sure to update the record in table {sessions.table_name} where {sessions.column_name} = {sessions.column_value} with the following updated values: {sessions.updated_values}?"
+            }
+        elif sessions.step == UpdateRecordSteps.UPDATE_RECORD.value:
+            if sessions.user_confirmation is False:
+                return {
+                    "status": "cancelled",
+                    "message": "Record update cancelled by the user."
+                }
+            else:
+                result, success = PostgresHelperFxns(self.adapter).update_record(
+                    table_name=sessions.table_name,
+                    identifier_column=sessions.column_name,
+                    identifier_value=sessions.column_value,
+                    updated_values=sessions.updated_values
+                )
+                if success:
+                    UPDATERECORDSESSIONS.pop(sessions.session_id, None)  # Clean up session
+                    return {
+                        "status": "record_updated",
+                        "message": result
+                    }
+                else:
+                    sessions.step = UpdateRecordSteps.ASK_RECORD_IDENTIFIER.value
+                    return {
+                        "status": "error, call the tool again with correct details",
+                        "message": result
+                    }
+        else:
+            UPDATERECORDSESSIONS.pop(sessions.session_id, None)  # Clean up session
+            return {
+                "status": f"completed",
+                "message": "Update record process completed."
+            }
+
     # Finite State Machine for Delete Record Orchestration
     def delete_record_from_table(self, session_state: SessionStateForDeleteRecord) -> Dict[str, Any]:
         
@@ -596,7 +733,7 @@ class OrchestrationTools:
         def decide_step(s: SessionStateForPatternMatchRecord) -> str:
             if not bool(s.table_name.strip()):
                 return PatternMatchRecordSteps.ASK_TABLE_NAME.value
-            if not s.columns:
+            if not s.columns or s.column_name not in s.columns:
                 return PatternMatchRecordSteps.GET_COLUMN_NAMES.value
             if not bool(s.column_name.strip()):
                 return PatternMatchRecordSteps.ASK_PATTERN.value
@@ -605,7 +742,10 @@ class OrchestrationTools:
         session = PATTERNMATCHRECORDSESSIONS.setdefault(session_state.session_id, session_state)
         
         # Update session with any new incoming data
-        if session_state.table_name: session.table_name = session_state.table_name
+        if session_state.table_name:
+            session.table_name = session_state.table_name
+            if session.columns is None:  # Only fetch columns if we don't already have them
+                session.columns = PostgresHelperFxns(self.adapter).get_column_names(session.table_name)
         if session_state.column_name: session.column_name = session_state.column_name
         if session_state.pattern: session.pattern = session_state.pattern
 
@@ -622,7 +762,6 @@ class OrchestrationTools:
                 session.table_name = '' # Reset
                 return {"status": "error", "message": f"Table '{session_state.table_name}' not found."}
             
-            session.columns = PostgresHelperFxns(self.adapter).get_column_names(session.table_name)
             return {
                 "status": "ask_column_for_pattern",
                 "message": f"Table '{session.table_name}' has columns: {', '.join(session.columns)}. Which column would you like to apply the pattern match on?"
@@ -651,3 +790,304 @@ class OrchestrationTools:
                 "data": results[:5], # Return a snippet for the LLM
                 "count": len(results) # Return total count of matched records
             }
+    
+    # Finite State Machine for Setting Primary Key Orchestration
+    def set_primary_key(self, session_state: SessionStateSettingPrimaryKey) -> Dict[str, Any]:
+        def decide_step(s: SessionStateSettingPrimaryKey) -> str:
+            if not bool(s.table_name.strip()):
+                return SetPrimaryKeySteps.ASK_TABLE_NAME.value
+            if not s.columns or s.primary_key_column not in s.columns:
+                return SetPrimaryKeySteps.GET_COLUMN_NAMES.value
+            if not bool(s.primary_key_column.strip()):
+                return SetPrimaryKeySteps.ASK_PRIMARY_KEY_COLUMN.value
+            return SetPrimaryKeySteps.SET_PRIMARY_KEY.value
+
+        session = SETTINGPRIMARYKEYSESSIONS.setdefault(session_state.session_id, session_state)
+        
+        # Update session with any new incoming data
+        if session_state.table_name: session.table_name = session_state.table_name
+        if session_state.primary_key_column: session.primary_key_column = session_state.primary_key_column
+        if session_state.columns is not None: session.columns = session_state.columns
+
+        session.step = decide_step(session)
+
+        if session.step == SetPrimaryKeySteps.ASK_TABLE_NAME.value:
+            return {
+                "status": "ask_table_name",
+                "message": "For which table would you like to set a primary key?"
+            }
+
+        elif session.step == SetPrimaryKeySteps.GET_COLUMN_NAMES.value:
+            if not PostgresHelperFxns(self.adapter).check_table_exists(session.table_name):
+                session.table_name = '' # Reset
+                return {"status": "error", "message": f"Table '{session_state.table_name}' not found."}
+            
+            session.columns = PostgresHelperFxns(self.adapter).find_columns_with_unique_values(session.table_name)
+            return {
+                "status": "ask_primary_key",
+                "message": f"Table '{session.table_name}' has columns with unique values: {', '.join(session.columns)}. Which column would you like to set as the primary key?"
+            }
+        
+        elif session.step == SetPrimaryKeySteps.ASK_PRIMARY_KEY_COLUMN.value:
+            return {
+                "status": "ask_primary_key",
+                "message": f"Which column would you like to set as the primary key for table '{session.table_name}'?"
+            }
+        
+        elif session.step == SetPrimaryKeySteps.SET_PRIMARY_KEY.value:
+            result, success = PostgresHelperFxns(self.adapter).set_primary_key(
+                table_name=session.table_name,
+                primary_key_column=session.primary_key_column
+            )
+            if not success:
+                session.primary_key_column = ''  # Reset primary key column to ask again
+                return {
+                    "status": "error",
+                    "message": result
+                }
+            SETTINGPRIMARYKEYSESSIONS.pop(session.session_id, None) # Clean up
+            return {
+                "status": "success",
+                "message": f"Primary key '{session.primary_key_column}' set for table '{session.table_name}'."
+            }
+    
+    # Finite State Machine for Setting Foreign Key Orchestration
+    def set_foreign_key(self, session_state: SessionStateForSettingForeignKey) -> Dict[str, Any]:
+        def decide_step(s: SessionStateForSettingForeignKey) -> str:
+            if not bool(s.source_table.strip()):
+                return SetForeignKeySteps.ASK_SOURCE_TABLE.value
+            if not bool(s.source_column.strip()):
+                return SetForeignKeySteps.ASK_SOURCE_COLUMN.value
+            if not bool(s.target_table.strip()):
+                return SetForeignKeySteps.ASK_TARGET_TABLE.value
+            if not bool(s.target_column.strip()):
+                return SetForeignKeySteps.ASK_TARGET_COLUMN.value
+            return SetForeignKeySteps.SET_FOREIGN_KEY.value
+
+        session = SETFOREIGNKEYSESSIONS.setdefault(session_state.session_id, session_state)
+
+        # Update session with new incoming values
+        if session_state.source_table:
+            session.source_table = session_state.source_table
+        if session_state.source_column:
+            session.source_column = session_state.source_column
+        if session_state.target_table:
+            session.target_table = session_state.target_table
+        if session_state.target_column:
+            session.target_column = session_state.target_column
+
+        session.step = decide_step(session)
+
+        if session.step == SetForeignKeySteps.ASK_SOURCE_TABLE.value:
+            return {
+                "status": "ask_source_table",
+                "message": "From which table should the foreign key originate?"
+            }
+
+        elif session.step == SetForeignKeySteps.ASK_SOURCE_COLUMN.value:
+            if not PostgresHelperFxns(self.adapter).check_table_exists(session.source_table):
+                session.source_table = ''
+                return {
+                    "status": "error",
+                    "message": f"Table '{session.source_table}' does not exist."
+                }
+
+            columns = PostgresHelperFxns(self.adapter).get_column_names(session.source_table)
+
+            return {
+                "status": "ask_source_column",
+                "message": f"Table '{session.source_table}' has columns: {', '.join(columns)}. Which column should be the foreign key?"
+            }
+
+        elif session.step == SetForeignKeySteps.ASK_TARGET_TABLE.value:
+            tables = PostgresHelperFxns(self.adapter).list_all_tables()
+            available_tables = [t for t in tables if t != session.source_table]  # Exclude source table to prevent self-referencing FKs
+            return {
+                "status": "ask_target_table",
+                "message": f"Which table should '{session.source_table}.{session.source_column}' reference? Available tables: {available_tables}"
+            }
+
+        elif session.step == SetForeignKeySteps.ASK_TARGET_COLUMN.value:
+            if not PostgresHelperFxns(self.adapter).check_table_exists(session.target_table):
+                session.target_table = ''
+                return {
+                    "status": "error",
+                    "message": f"Table '{session.target_table}' does not exist."
+                }
+
+            columns = PostgresHelperFxns(self.adapter).get_column_names(session.target_table)
+            return {
+                "status": "ask_target_column",
+                "message": f"Table '{session.target_table}' has columns: {', '.join(columns)}. Which column should be referenced?"
+            }
+
+        elif session.step == SetForeignKeySteps.SET_FOREIGN_KEY.value:
+            helper = PostgresHelperFxns(self.adapter)
+
+            # Validate columns
+            if not helper.check_column_exists(session.source_table, session.source_column):
+                return {
+                    "status": "error",
+                    "message": f"Column '{session.source_column}' does not exist in table '{session.source_table}'."
+                }
+
+            if not helper.check_column_exists(session.target_table, session.target_column):
+                return {
+                    "status": "error",
+                    "message": f"Column '{session.target_column}' does not exist in table '{session.target_table}'."
+                }
+
+            # Check referenced column is PK or UNIQUE
+            if not helper.check_if_primary_or_unique(session.target_table, session.target_column):
+                return {
+                    "status": "error",
+                    "message": f"Column '{session.target_column}' must be PRIMARY KEY or UNIQUE to reference."
+                }
+
+            # Check datatype compatibility
+            source_type = helper.get_column_type(session.source_table, session.source_column)
+            target_type = helper.get_column_type(session.target_table, session.target_column)
+
+            if source_type != target_type:
+                return {
+                    "status": "error",
+                    "message": f"Datatype mismatch: {source_type} vs {target_type}"
+                }
+
+            # Finally create FK
+            result, success = helper.set_foreign_key(
+                source_table=session.source_table,
+                source_column=session.source_column,
+                target_table=session.target_table,
+                target_column=session.target_column
+            )
+
+            if not success:
+                session.target_column = ''
+                return {
+                    "status": "error",
+                    "message": result
+                }
+
+            SETFOREIGNKEYSESSIONS.pop(session.session_id, None)
+
+            return {
+                "status": "success",
+                "message": f"Foreign key created: '{session.source_table}.{session.source_column}' → '{session.target_table}.{session.target_column}'."
+            }
+
+    # Finite State Machine for Generate Schema Graph Orchestration
+    def generate_schema_graph(self, session_state: SessionStateForGenerateSchemaGraph) -> Dict[str, Any] | List[Union[TextContent, ImageContent]]:  
+
+        def decide_step(s: SessionStateForGenerateSchemaGraph) -> str:
+            if s.graph_data is None:
+                return GenerateSchemaGraphSteps.FETCH_TABLES.value
+            if "tables" not in s.graph_data:
+                return GenerateSchemaGraphSteps.FETCH_TABLES.value
+            if "foreign_keys" not in s.graph_data:
+                return GenerateSchemaGraphSteps.FETCH_FOREIGN_KEYS.value
+            return GenerateSchemaGraphSteps.BUILD_GRAPH.value
+
+        session = GENERATESCHEMAGRAPHSESSIONS.setdefault(session_state.session_id, session_state)
+        helper = PostgresHelperFxns(self.adapter)
+        session.step = decide_step(session)
+
+        if session.step == GenerateSchemaGraphSteps.FETCH_TABLES.value:
+            tables = helper.list_all_tables()
+            if not tables:
+                GENERATESCHEMAGRAPHSESSIONS.pop(session.session_id, None)
+                return {
+                    "status": "error",
+                    "message": "No tables found in the public schema."
+                }
+
+            if session.graph_data is None:
+                session.graph_data = {}
+            session.graph_data["tables"] = tables
+            return {
+                "status": "fetching_foreign_keys",
+                "message": f"Found {len(tables)} tables. Fetching foreign key relationships..."
+            }
+
+        elif session.step == GenerateSchemaGraphSteps.FETCH_FOREIGN_KEYS.value:
+            foreign_keys = helper.get_all_foreign_keys()
+            if session.graph_data is None:
+                session.graph_data = {}
+            session.graph_data["foreign_keys"] = foreign_keys
+            return {
+                "status": "building_graph",
+                "message": f"Found {len(foreign_keys)} foreign key relationships. Building schema graph..."
+            }
+
+
+        elif session.step == GenerateSchemaGraphSteps.BUILD_GRAPH.value:
+            helper = PostgresHelperFxns(self.adapter)
+
+            tables = session.graph_data.get("tables", [])
+            foreign_keys = session.graph_data.get("foreign_keys", [])
+            graph = {table: {"outgoing": [], "incoming": []} for table in tables}
+
+            for fk in foreign_keys:
+                source_table = fk["source_table"]
+                source_column = fk["source_column"]
+                target_table = fk["target_table"]
+                target_column = fk["target_column"]
+
+                if source_table not in graph:
+                    graph[source_table] = {"outgoing": [], "incoming": []}
+
+                if target_table not in graph:
+                    graph[target_table] = {"outgoing": [], "incoming": []}
+
+                graph[source_table]["outgoing"].append({
+                    "source_column": source_column,
+                    "target_table": target_table,
+                    "target_column": target_column
+                })
+
+                graph[target_table]["incoming"].append({
+                    "source_table": source_table,
+                    "source_column": source_column,
+                    "target_column": target_column
+                })
+
+            session.graph_data["graph"] = graph
+            path = f"/Users/kushaldevgun/Downloads/images/schema_graph.png"
+            image_path, success = helper.draw_schema_graph(path)
+
+            if not success:
+                GENERATESCHEMAGRAPHSESSIONS.pop(session.session_id, None)
+                return {
+                    "status": "error",
+                    "message": image_path
+                }
+            with open(image_path, "rb") as f:
+                png_bytes = f.read()
+                b64 = base64.b64encode(png_bytes).decode("utf-8")
+                mime, _ = mimetypes.guess_type(image_path)
+
+            relationships = [
+                f"{fk['source_table']}.{fk['source_column']} -> {fk['target_table']}.{fk['target_column']}"
+                for fk in foreign_keys
+            ]
+
+            summary_text = (
+                f"Schema graph generated successfully.\n"
+                f"Tables found: {len(tables)}\n"
+                f"Foreign key relationships found: {len(foreign_keys)}\n\n"
+                f"Relationships:\n" + "\n".join(relationships)
+            )
+
+            GENERATESCHEMAGRAPHSESSIONS.pop(session.session_id, None)
+
+            return [
+                TextContent(
+                    type="text",
+                    text=summary_text
+                ),
+                ImageContent(
+                    type="image",
+                    mimeType=mime,
+                    data=b64
+                    )
+            ]
