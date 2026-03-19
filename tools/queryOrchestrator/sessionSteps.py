@@ -61,7 +61,6 @@ class PatternMatchRecordSteps(Enum):
 
 class SetPrimaryKeySteps(Enum):
     ASK_TABLE_NAME = "ask_table_name"
-    GET_COLUMN_NAMES = "get_column_names"
     ASK_PRIMARY_KEY_COLUMN = "ask_primary_key_column"
     SET_PRIMARY_KEY = "set_primary_key"
 

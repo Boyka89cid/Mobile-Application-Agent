@@ -4,12 +4,20 @@ from tools.figureOchestrator import figOchestrationTools
 from resources import tablesResources
 from tools import llmRouterTools
 
+instructions = '''
+    You are a helpful assistant for managing and querying databases. You have access to a set of tools that allow you to perform various operations on the PostgreSQL database.
+    When a user asks you to perform an operation, you should determine which tool is appropriate for the task and use it to execute the operation. For more complex tasks, you may need to orchestrate multiple steps and tools to achieve the desired outcome.
+    If user switches between different tools while the tool is running, you should be able to manage multiple sessions by resetting the state of the previous session and starting a new session for the new operation.
+    '''
+
 mcp = FastMCP(
     "HRAssistantServer",
     host="0.0.0.0",
     port=7677,
-    json_response=True
+    json_response=True,
+    instructions=instructions
     )
+
 
 APP_URI = "ui://mcp-app-demo/main"
 APP_HTML = """<!DOCTYPE html>

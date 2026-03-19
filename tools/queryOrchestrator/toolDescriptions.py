@@ -181,15 +181,14 @@ class ToolPrompts:
     WORKFLOW: set_primary_key (state machine)
     State fields:
     - session_id: string (required)
-    - step: enum[ ask_table_name, get_column_names, ask_primary_key_column, set_primary_key]
+    - step: enum[ ask_table_name, ask_primary_key_column, set_primary_key]
     - table_name: string
     - columns: list[string] | null
     - primary_key_column: string | null
     {RULES}
     1) Ask for table_name if not provided earlier by the user.
     2) Fetch column names and ask user to select a column to set as primary key.
-    3) Ask user to confirm setting the selected column as primary key.
-    4) Execute the operation to set the primary key if user_confirmation=true.
+    3) Execute the operation to set the primary key for the specified table based on user input.
     '''
     set_primary_key = f"Orchestrate the process of setting a primary key for a specified table in the database based on user input. \n {set_primary_key_workflow}"  
 

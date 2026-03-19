@@ -794,19 +794,19 @@ class OrchestrationTools:
     # Finite State Machine for Setting Primary Key Orchestration
     def set_primary_key(self, session_state: SessionStateSettingPrimaryKey) -> Dict[str, Any]:
         def decide_step(s: SessionStateSettingPrimaryKey) -> str:
-            if not bool(s.table_name.strip()):
+            has_table = bool(s.table_name.strip())
+            has_primary_key_column = bool(s.primary_key_column.strip())
+            if not has_table:
                 return SetPrimaryKeySteps.ASK_TABLE_NAME.value
-            if not s.columns or s.primary_key_column not in s.columns:
-                return SetPrimaryKeySteps.GET_COLUMN_NAMES.value
-            if not bool(s.primary_key_column.strip()):
+            if has_table and not has_primary_key_column:
                 return SetPrimaryKeySteps.ASK_PRIMARY_KEY_COLUMN.value
             return SetPrimaryKeySteps.SET_PRIMARY_KEY.value
 
         session = SETTINGPRIMARYKEYSESSIONS.setdefault(session_state.session_id, session_state)
         
         # Update session with any new incoming data
-        if session_state.table_name: session.table_name = session_state.table_name
-        if session_state.primary_key_column: session.primary_key_column = session_state.primary_key_column
+        if session_state.table_name is not None: session.table_name = session_state.table_name
+        if session_state.primary_key_column is not None: session.primary_key_column = session_state.primary_key_column
         if session_state.columns is not None: session.columns = session_state.columns
 
         session.step = decide_step(session)
@@ -817,7 +817,7 @@ class OrchestrationTools:
                 "message": "For which table would you like to set a primary key?"
             }
 
-        elif session.step == SetPrimaryKeySteps.GET_COLUMN_NAMES.value:
+        elif session.step == SetPrimaryKeySteps.ASK_PRIMARY_KEY_COLUMN.value:
             if not PostgresHelperFxns(self.adapter).check_table_exists(session.table_name):
                 session.table_name = '' # Reset
                 return {"status": "error", "message": f"Table '{session_state.table_name}' not found."}
@@ -829,16 +829,10 @@ class OrchestrationTools:
                 "message": f"Table '{session.table_name}' has columns with unique values: {_columns}. Which column would you like to set as the primary key?"
             }
         
-        elif session.step == SetPrimaryKeySteps.ASK_PRIMARY_KEY_COLUMN.value:
-            return {
-                "status": "ask_primary_key",
-                "message": f"Which column would you like to set as the primary key for table '{session.table_name}'?"
-            }
-        
         elif session.step == SetPrimaryKeySteps.SET_PRIMARY_KEY.value:
             result, success = PostgresHelperFxns(self.adapter).set_primary_key(
                 table_name=session.table_name,
-                primary_key_column=session.primary_key_column
+                column_name=session.primary_key_column
             )
             if not success:
                 session.primary_key_column = ''  # Reset primary key column to ask again
